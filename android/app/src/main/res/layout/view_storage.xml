@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/vbox"
+    android:layout_height="match_parent"
+    android:paddingTop="48dp"
+    android:paddingBottom="64dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:background="?attr/colorSurface">
+
+    <!-- 상단 메뉴 바 -->
+    <LinearLayout style="@style/hbox" android:padding="8dp"
+        android:background="?attr/colorSurfaceVariant">
+        <ImageView style="@style/icon" android:id="@+id/btnBack"
+            android:src="@drawable/ic_arrow_back" android:contentDescription="뒤로"
+            android:clickable="true" android:focusable="true" />
+        <TextView style="@style/body" android:id="@+id/txtTitle"
+            android:text="Storage" android:textStyle="bold" android:layout_marginStart="4dp" />
+        <View style="@style/spacer" />
+        <ImageView style="@style/icon" android:id="@+id/btnConvert"
+            android:src="@drawable/ic_convert" android:contentDescription="변환"
+            android:clickable="true" android:focusable="true"
+            android:padding="12dp" />
+        <ImageView style="@style/icon" android:id="@+id/btnAdd"
+            android:src="@drawable/ic_camera" android:contentDescription="추가"
+            android:clickable="true" android:focusable="true"
+            android:padding="12dp" />
+        <ImageView style="@style/icon" android:id="@+id/btnExport"
+            android:src="@drawable/ic_export" android:contentDescription="내보내기"
+            android:clickable="true" android:focusable="true"
+            android:padding="12dp" />
+        <ImageView style="@style/iconDan" android:id="@+id/btnReset"
+            android:src="@drawable/ic_delete" android:contentDescription="초기화"
+            android:clickable="true" android:focusable="true"
+            android:padding="12dp" />
+    </LinearLayout>
+
+    <!-- 진행 상태 (평소 숨김) -->
+    <TextView style="@style/cap" android:id="@+id/txtProgress"
+        android:text="" android:gravity="center" android:padding="8dp"
+        android:visibility="gone" />
+
+    <!-- 이미지 그리드 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerImages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="4dp"
+        android:clipToPadding="false" />
+
+    <!-- 하단 페이징 바 -->
+    <LinearLayout style="@style/hbox" android:padding="8dp"
+        android:gravity="center" android:background="?attr/colorSurfaceVariant">
+        <ImageView style="@style/icon" android:id="@+id/btnPrev"
+            android:src="@drawable/ic_arrow_left" android:contentDescription="이전"
+            android:clickable="true" android:focusable="true" />
+        <TextView style="@style/body" android:id="@+id/txtPage"
+            android:text="1 / 1" android:layout_marginStart="16dp" android:layout_marginEnd="16dp" />
+        <ImageView style="@style/icon" android:id="@+id/btnNext"
+            android:src="@drawable/ic_arrow_right" android:contentDescription="다음"
+            android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+
+</LinearLayout>

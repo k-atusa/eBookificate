@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/vbox"
+    android:layout_height="wrap_content"
+    android:padding="4dp">
+
+    <!-- 썸네일 이미지 -->
+    <ImageView
+        android:id="@+id/imgThumb"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        android:contentDescription="이미지 썸네일" />
+
+    <!-- 파일명 -->
+    <TextView style="@style/cap"
+        android:id="@+id/txtName"
+        android:text="A00000.jpg"
+        android:layout_width="match_parent"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_marginTop="2dp" />
+
+</LinearLayout>

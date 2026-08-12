@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <LinearLayout style="@style/vbox"
+        android:paddingTop="48dp"
+        android:paddingBottom="64dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <!-- 상단 바: 뒤로가기 + 제목 -->
+        <LinearLayout style="@style/hbox">
+            <ImageView style="@style/icon" android:id="@+id/btnBack"
+                android:src="@drawable/ic_arrow_back" android:contentDescription="뒤로"
+                android:clickable="true" android:focusable="true" />
+            <TextView style="@style/title" android:text="Convert" android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="32dp" />
+
+        <!-- 이미지 선택 -->
+        <com.google.android.material.card.MaterialCardView style="@style/card">
+            <LinearLayout style="@style/vbox" android:padding="16dp">
+                <TextView style="@style/body" android:text="이미지 선택" android:textStyle="bold" />
+                <TextView style="@style/cap" android:id="@+id/txtSelected"
+                    android:text="선택된 파일 없음" android:layout_marginTop="4dp" />
+                <Button style="@style/btnOut" android:id="@+id/btnSelect"
+                    android:text="파일 선택" android:layout_marginTop="12dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <View android:layout_width="match_parent" android:layout_height="16dp" />
+
+        <!-- 모드 선택 -->
+        <com.google.android.material.card.MaterialCardView style="@style/card">
+            <LinearLayout style="@style/vbox" android:padding="16dp">
+                <TextView style="@style/body" android:text="변환 모드" android:textStyle="bold" />
+
+                <RadioGroup android:id="@+id/radioMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp">
+                    <RadioButton android:id="@+id/modeNone" android:text="None (메타데이터만 제거)"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:checked="true" />
+                    <RadioButton android:id="@+id/modeJpg" android:text="JPG"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    <RadioButton android:id="@+id/modePng" android:text="PNG"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    <RadioButton android:id="@+id/modeWebp" android:text="WebP"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    <RadioButton android:id="@+id/modeWebpLossless" android:text="WebP (Lossless)"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    <RadioButton android:id="@+id/modeWebpHalf" android:text="WebP (Half)"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <View android:layout_width="match_parent" android:layout_height="24dp" />
+
+        <!-- 진행 상태 -->
+        <TextView style="@style/body" android:id="@+id/txtProgress"
+            android:text="" android:layout_gravity="center_horizontal"
+            android:visibility="gone" />
+
+        <View android:layout_width="match_parent" android:layout_height="12dp" />
+
+        <!-- 변환 버튼 -->
+        <Button style="@style/btnPri" android:id="@+id/btnConvert"
+            android:text="변환"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:textSize="18sp" />
+
+    </LinearLayout>
+</ScrollView>
