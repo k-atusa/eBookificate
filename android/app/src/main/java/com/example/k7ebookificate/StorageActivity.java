@@ -1,10 +1,14 @@
 package com.example.k7ebookificate;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,269 +20,303 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class StorageActivity extends AppCompatActivity {
 
     private int slot;
     private ImageAdapter adapter;
-    private TextView txtTitle, txtPage, txtProgress;
-    private View btnConvert, btnAdd, btnExport, btnReset, btnPrev, btnNext;
+    private TextView txtTitle, txtPage, txtStatus;
+    private View btnConv, btnAdd, btnExport, btnReset, btnPrev, btnNext;
 
     private List<IO1.VFile> allFiles = new ArrayList<>();
-    private int currentPage = 0;
-    private int totalPages = 1;
-    private boolean isWorking = false;
+    private int curPage = 0;
+    private int maxPage = 1;
+    private boolean busy = false;
 
-    // Camera launcher: returns to this activity and refreshes
-    private final ActivityResultLauncher<Intent> cameraLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                refreshFiles();
+    // Camera result refreshes file list.
+    private final ActivityResultLauncher<Intent> camLaunch =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    r -> reloadFiles());
+
+    private final ActivityResultLauncher<String> camPerm =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {
+                if (ok) openCamera();
+                else Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
             });
 
-    private final ActivityResultLauncher<String> cameraPermLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
-                if (granted) launchCamera();
-                else Toast.makeText(this, "카메라 권한이 필요합니다", Toast.LENGTH_SHORT).show();
-            });
-
-    private final ActivityResultLauncher<String> notifPermLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {});
+    private final ActivityResultLauncher<String> notifPerm =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {});
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
         setContentView(R.layout.view_storage);
 
         slot = getIntent().getIntExtra("slot", 0);
 
-        // Views
-        txtTitle = findViewById(R.id.txtTitle);
-        txtPage = findViewById(R.id.txtPage);
-        txtProgress = findViewById(R.id.txtProgress);
-        btnConvert = findViewById(R.id.btnConvert);
-        btnAdd = findViewById(R.id.btnAdd);
+        // Bind views
+        txtTitle  = findViewById(R.id.txtTitle);
+        txtPage   = findViewById(R.id.txtPage);
+        txtStatus = findViewById(R.id.txtProgress);
+        btnConv   = findViewById(R.id.btnConvert);
+        btnAdd    = findViewById(R.id.btnAdd);
         btnExport = findViewById(R.id.btnExport);
-        btnReset = findViewById(R.id.btnReset);
-        btnPrev = findViewById(R.id.btnPrev);
-        btnNext = findViewById(R.id.btnNext);
+        btnReset  = findViewById(R.id.btnReset);
+        btnPrev   = findViewById(R.id.btnPrev);
+        btnNext   = findViewById(R.id.btnNext);
 
-        // Title
-        String[] names = Core.loadStorageNames(this);
-        txtTitle.setText(names[slot]);
+        // Set title
+        txtTitle.setText(Core.loadNames(this)[slot]);
 
-        // RecyclerView setup
-        RecyclerView recycler = findViewById(R.id.recyclerImages);
-        recycler.setLayoutManager(new GridLayoutManager(this, 3));
+        // Grid setup
+        RecyclerView grid = findViewById(R.id.recyclerImages);
+        grid.setLayoutManager(new GridLayoutManager(this, 3));
         adapter = new ImageAdapter(this);
-        recycler.setAdapter(adapter);
+        grid.setAdapter(adapter);
 
-        // Long press → delete
-        adapter.setOnItemLongClickListener((position, file) -> {
+        // Long press to delete
+        adapter.setOnItemLongClickListener((pos, file) -> {
             String name = file.GetName(this);
             new AlertDialog.Builder(this)
-                    .setTitle("삭제")
-                    .setMessage(name + " 을(를) 삭제하시겠습니까?")
-                    .setPositiveButton("삭제", (d, w) -> {
+                    .setTitle("Delete")
+                    .setMessage("Delete " + name + "?")
+                    .setPositiveButton("Delete", (d, w) -> {
                         file.Delete(this);
-                        refreshFiles();
+                        reloadFiles();
                     })
-                    .setNegativeButton("취소", null)
+                    .setNegativeButton("Cancel", null)
                     .show();
         });
 
-        // Action buttons — ensure clickable
-        View backBtn = findViewById(R.id.btnBack);
-        backBtn.setClickable(true);
-        backBtn.setOnClickListener(v -> finish());
+        // Tap to view fullscreen
+        adapter.setOnItemClickListener((pos, file) -> showImage(file));
 
-        btnConvert.setClickable(true);
-        btnConvert.setOnClickListener(v -> showConvertDialog());
+        // Action buttons
+        View btnBack = findViewById(R.id.btnBack);
+        btnBack.setClickable(true);
+        btnBack.setOnClickListener(v -> finish());
+
+        btnConv.setClickable(true);
+        btnConv.setOnClickListener(v -> pickConvMode());
         btnAdd.setClickable(true);
         btnAdd.setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                     == PackageManager.PERMISSION_GRANTED) {
-                launchCamera();
+                openCamera();
             } else {
-                cameraPermLauncher.launch(Manifest.permission.CAMERA);
+                camPerm.launch(Manifest.permission.CAMERA);
             }
         });
         btnExport.setClickable(true);
-        btnExport.setOnClickListener(v -> confirmExport());
+        btnExport.setOnClickListener(v -> askExport());
         btnReset.setClickable(true);
-        btnReset.setOnClickListener(v -> confirmReset());
+        btnReset.setOnClickListener(v -> askReset());
 
         // Pagination
-        btnPrev.setOnClickListener(v -> {
-            if (currentPage > 0) {
-                currentPage--;
-                updatePage();
-            }
-        });
-        btnNext.setOnClickListener(v -> {
-            if (currentPage < totalPages - 1) {
-                currentPage++;
-                updatePage();
-            }
-        });
+        btnPrev.setOnClickListener(v -> { if (curPage > 0) { curPage--; showPage(); } });
+        btnNext.setOnClickListener(v -> { if (curPage < maxPage - 1) { curPage++; showPage(); } });
 
         // Observe service progress
-        SVCC1 chan = SVCC1.getChan();
-        chan.StringSlots[0].observe(this, status -> {
-            if (status != null && !status.isEmpty()) {
-                txtProgress.setVisibility(View.VISIBLE);
-                txtProgress.setText(status);
+        SVCC1 ch = SVCC1.getChan();
+        ch.StringSlots[0].observe(this, s -> {
+            if (s != null && !s.isEmpty()) {
+                txtStatus.setVisibility(View.VISIBLE);
+                txtStatus.setText(s);
             }
         });
-        chan.ToMainBus.observe(this, event -> {
-            if (event != null && "DONE".equals(event.action)) {
-                isWorking = false;
-                setMenuEnabled(true);
-                txtProgress.setVisibility(View.GONE);
-                refreshFiles();
-                Toast.makeText(this, "작업 완료", Toast.LENGTH_SHORT).show();
+        ch.ToMainBus.observe(this, ev -> {
+            if (ev != null && "DONE".equals(ev.action)) {
+                busy = false;
+                setMenuOn(true);
+                txtStatus.setVisibility(View.GONE);
+                reloadFiles();
+                Toast.makeText(this, "Done", Toast.LENGTH_SHORT).show();
             }
         });
 
         // Request notification permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS);
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        refreshFiles();
+    @Override protected void onResume() { super.onResume(); reloadFiles(); }
+    @Override protected void onDestroy() { super.onDestroy(); adapter.shutdown(); }
+
+    // Reload file list and refresh page.
+    private void reloadFiles() {
+        IO1.VFile dir = Core.getStoreDir(this, slot);
+        allFiles = dir.ListDir(this);
+        allFiles.sort((a, b) -> a.GetName(this).compareTo(b.GetName(this)));
+
+        maxPage = Math.max(1, (int) Math.ceil((double) allFiles.size() / Core.PAGE_SIZE));
+        if (curPage >= maxPage) curPage = maxPage - 1;
+        showPage();
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        adapter.shutdown();
+    // Display current page of thumbnails.
+    private void showPage() {
+        int from = curPage * Core.PAGE_SIZE;
+        int to = Math.min(from + Core.PAGE_SIZE, allFiles.size());
+        List<IO1.VFile> page = (from < allFiles.size())
+                ? allFiles.subList(from, to) : new ArrayList<>();
+        adapter.setItems(page);
+        txtPage.setText((curPage + 1) + " / " + maxPage);
+        btnPrev.setEnabled(curPage > 0);
+        btnNext.setEnabled(curPage < maxPage - 1);
     }
 
-    // ========== File Loading & Pagination ==========
-
-    private void refreshFiles() {
-        IO1.VFile storageDir = Core.getStorageDir(this, slot);
-        allFiles = storageDir.ListDir(this);
-
-        // Sort by name
-        allFiles.sort((a, b) -> {
-            String na = a.GetName(this);
-            String nb = b.GetName(this);
-            return na.compareTo(nb);
-        });
-
-        totalPages = Math.max(1, (int) Math.ceil((double) allFiles.size() / Core.PAGE_SIZE));
-        if (currentPage >= totalPages) currentPage = totalPages - 1;
-        updatePage();
+    // Launch camera activity for this slot.
+    private void openCamera() {
+        Intent it = new Intent(this, CameraActivity.class);
+        it.putExtra("slot", slot);
+        camLaunch.launch(it);
     }
 
-    private void updatePage() {
-        int start = currentPage * Core.PAGE_SIZE;
-        int end = Math.min(start + Core.PAGE_SIZE, allFiles.size());
-
-        List<IO1.VFile> pageItems = (start < allFiles.size())
-                ? allFiles.subList(start, end)
-                : new ArrayList<>();
-        adapter.setItems(pageItems);
-
-        txtPage.setText((currentPage + 1) + " / " + totalPages);
-        btnPrev.setEnabled(currentPage > 0);
-        btnNext.setEnabled(currentPage < totalPages - 1);
-    }
-
-    // ========== Actions ==========
-
-    private void launchCamera() {
-        Intent intent = new Intent(this, CameraActivity.class);
-        intent.putExtra("slot", slot);
-        cameraLauncher.launch(intent);
-    }
-
-    private void showConvertDialog() {
-        if (isWorking) return;
-        String[] modes = {"JPG", "PNG", "WebP", "WebP (Half)"};
-        String[] modeValues = {"jpg", "png", "webp", "webp_half"};
+    // Show conversion mode picker dialog.
+    private void pickConvMode() {
+        if (busy) return;
+        String[] labels = {"JPG", "PNG", "WebP", "WebP (Half)"};
+        String[] modes  = {"jpg", "png", "webp", "webp_half"};
 
         new AlertDialog.Builder(this)
-                .setTitle("변환 모드 선택")
-                .setItems(modes, (d, which) -> {
+                .setTitle("Convert Mode")
+                .setItems(labels, (d, i) -> {
                     new AlertDialog.Builder(this)
-                            .setTitle("변환")
-                            .setMessage("저장소의 모든 이미지를 " + modes[which] + " 로 변환하시겠습니까?")
-                            .setPositiveButton("변환", (d2, w2) -> {
-                                startStorageConvert(modeValues[which]);
-                            })
-                            .setNegativeButton("취소", null)
+                            .setTitle("Convert")
+                            .setMessage("Convert all images to " + labels[i] + "?")
+                            .setPositiveButton("Convert", (d2, w) -> runConvStore(modes[i]))
+                            .setNegativeButton("Cancel", null)
                             .show();
                 })
-                .setNegativeButton("취소", null)
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void startStorageConvert(String mode) {
-        isWorking = true;
-        setMenuEnabled(false);
-        txtProgress.setVisibility(View.VISIBLE);
-        txtProgress.setText("변환 준비 중...");
+    // Start storage conversion via foreground service.
+    private void runConvStore(String mode) {
+        busy = true;
+        setMenuOn(false);
+        txtStatus.setVisibility(View.VISIBLE);
+        txtStatus.setText("Preparing...");
 
-        Intent intent = new Intent(this, ConvertService.class);
-        intent.setAction("CONVERT_STORAGE");
-        intent.putExtra("slot", slot);
-        intent.putExtra("mode", mode);
-        startForegroundService(intent);
+        Intent it = new Intent(this, ConvertService.class);
+        it.setAction("CONV_STORE");
+        it.putExtra("slot", slot);
+        it.putExtra("mode", mode);
+        try {
+            startForegroundService(it);
+        } catch (Exception e) {
+            busy = false;
+            setMenuOn(true);
+            txtStatus.setVisibility(View.GONE);
+            Toast.makeText(this, "ERR: start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
-    private void confirmExport() {
-        if (isWorking) return;
+    // Confirm and start ZIP export.
+    private void askExport() {
+        if (busy) return;
         if (allFiles.isEmpty()) {
-            Toast.makeText(this, "내보낼 파일이 없습니다", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No files to export", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String name = Core.SLOT_TAG[slot] + ".zip";
+        new AlertDialog.Builder(this)
+                .setTitle("Export")
+                .setMessage("Export " + allFiles.size() + " files as " + name + "?")
+                .setPositiveButton("Export", (d, w) -> {
+                    busy = true;
+                    setMenuOn(false);
+                    txtStatus.setVisibility(View.VISIBLE);
+                    txtStatus.setText("Preparing...");
+                    Intent it = new Intent(this, ConvertService.class);
+                    it.setAction("EXPORT_ZIP");
+                    it.putExtra("slot", slot);
+                    try {
+                        startForegroundService(it);
+                    } catch (Exception e) {
+                        busy = false;
+                        setMenuOn(true);
+                        txtStatus.setVisibility(View.GONE);
+                        Toast.makeText(StorageActivity.this, "ERR: start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // Confirm and reset storage.
+    private void askReset() {
+        if (busy) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Reset")
+                .setMessage("Delete all files?\nThis cannot be undone.")
+                .setPositiveButton("Reset", (d, w) -> {
+                    Core.resetStore(this, slot);
+                    reloadFiles();
+                    Toast.makeText(this, "Reset done", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // Toggle action button states.
+    private void setMenuOn(boolean on) {
+        btnConv.setEnabled(on);
+        btnAdd.setEnabled(on);
+        btnExport.setEnabled(on);
+        btnReset.setEnabled(on);
+    }
+
+    // Show fullscreen image in a dialog.
+    private void showImage(IO1.VFile file) {
+        Dialog dlg = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        ImageView iv = new ImageView(this);
+        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        iv.setBackgroundColor(0xFF000000);
+
+        try {
+            // Determine max decode size from screen
+            int maxDim = Math.max(
+                    getResources().getDisplayMetrics().widthPixels,
+                    getResources().getDisplayMetrics().heightPixels);
+
+            // First pass: read dimensions
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+            try (InputStream is = file.OpenReader(this)) {
+                BitmapFactory.decodeStream(is, null, opts);
+            }
+
+            // Calculate sample size
+            int sample = 1;
+            while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim)
+                sample *= 2;
+
+            // Second pass: decode
+            opts.inJustDecodeBounds = false;
+            opts.inSampleSize = sample;
+            Bitmap bmp;
+            try (InputStream is = file.OpenReader(this)) {
+                bmp = BitmapFactory.decodeStream(is, null, opts);
+            }
+            if (bmp != null) {
+                iv.setImageBitmap(bmp);
+                dlg.setOnDismissListener(d -> bmp.recycle());
+            }
+        } catch (IOException e) {
+            Toast.makeText(this, "ERR: open image: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
 
-        String zipName = Core.SLOT_PREFIXES[slot] + ".zip";
-        new AlertDialog.Builder(this)
-                .setTitle("내보내기")
-                .setMessage(allFiles.size() + "개 파일을 " + zipName + " 으로 내보내시겠습니까?")
-                .setPositiveButton("내보내기", (d, w) -> {
-                    isWorking = true;
-                    setMenuEnabled(false);
-                    txtProgress.setVisibility(View.VISIBLE);
-                    txtProgress.setText("내보내기 준비 중...");
-
-                    Intent intent = new Intent(this, ConvertService.class);
-                    intent.setAction("EXPORT_ZIP");
-                    intent.putExtra("slot", slot);
-                    startForegroundService(intent);
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
-
-    private void confirmReset() {
-        if (isWorking) return;
-        new AlertDialog.Builder(this)
-                .setTitle("초기화")
-                .setMessage("저장소의 모든 파일을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")
-                .setPositiveButton("초기화", (d, w) -> {
-                    Core.resetStorage(this, slot);
-                    refreshFiles();
-                    Toast.makeText(this, "초기화 완료", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
-
-    private void setMenuEnabled(boolean enabled) {
-        btnConvert.setEnabled(enabled);
-        btnAdd.setEnabled(enabled);
-        btnExport.setEnabled(enabled);
-        btnReset.setEnabled(enabled);
+        iv.setOnClickListener(v -> dlg.dismiss());
+        dlg.setContentView(iv);
+        dlg.show();
     }
 }

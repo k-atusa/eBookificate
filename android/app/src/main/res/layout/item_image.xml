@@ -5,16 +5,16 @@
     android:layout_height="wrap_content"
     android:padding="4dp">
 
-    <!-- 썸네일 이미지 -->
+    <!-- thumbnail -->
     <ImageView
         android:id="@+id/imgThumb"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:adjustViewBounds="true"
         android:scaleType="centerCrop"
-        android:contentDescription="이미지 썸네일" />
+        android:contentDescription="Thumbnail" />
 
-    <!-- 파일명 -->
+    <!-- filename -->
     <TextView style="@style/cap"
         android:id="@+id/txtName"
         android:text="A00000.jpg"

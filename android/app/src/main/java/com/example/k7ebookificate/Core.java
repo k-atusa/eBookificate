@@ -22,186 +22,150 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * Core utility library for eBookificate.
- * Provides image conversion, storage management, settings, ZIP export.
- */
+// Core utility: image conversion, storage, settings, ZIP export.
 public class Core {
-    private static final String SETTINGS_FILE = "settings.txt";
-    public static final String[] SLOT_PREFIXES = {"A", "B", "C", "D", "E"};
-    private static final String[] DEFAULT_NAMES = {"Scan 1", "Scan 2", "Scan 3", "Scan 4", "Scan 5"};
-    public static final String OUTPUT_FOLDER = "eBookificate";
+    private static final String CONF_FILE = "settings.txt";
+    public static final String[] SLOT_TAG = {"A", "B", "C", "D", "E"};
+    private static final String[] INIT_NAME = {"Scan 1", "Scan 2", "Scan 3", "Scan 4", "Scan 5"};
+    public static final String OUT_DIR = "eBookificate";
     public static final int PAGE_SIZE = 30;
 
-    // ========== Storage Folder ==========
-
-    /** Get or create the storage directory for a slot (0~4) → A~E folder in filesDir */
-    public static IO1.VFile getStorageDir(Context context, int slot) {
-        File dir = new File(context.getFilesDir(), SLOT_PREFIXES[slot]);
+    // Get or create storage directory for slot 0~4.
+    public static IO1.VFile getStoreDir(Context ctx, int slot) {
+        File dir = new File(ctx.getFilesDir(), SLOT_TAG[slot]);
         if (!dir.exists()) dir.mkdir();
-        return IO1.GetLocal(context, SLOT_PREFIXES[slot]);
+        return IO1.GetLocal(ctx, SLOT_TAG[slot]);
     }
 
-    public static String getSlotPrefix(int slot) {
-        return SLOT_PREFIXES[slot];
+    public static String getSlotTag(int slot) {
+        return SLOT_TAG[slot];
     }
 
-    // ========== Settings (settings.txt) ==========
-
-    /** Load all 5 storage names from settings.txt */
-    public static String[] loadStorageNames(Context context) {
+    // Load 5 storage names from settings.txt.
+    public static String[] loadNames(Context ctx) {
         String[] names = new String[5];
-        System.arraycopy(DEFAULT_NAMES, 0, names, 0, 5);
+        System.arraycopy(INIT_NAME, 0, names, 0, 5);
 
-        File settingsFile = new File(context.getFilesDir(), SETTINGS_FILE);
-        if (!settingsFile.exists()) return names;
+        File conf = new File(ctx.getFilesDir(), CONF_FILE);
+        if (!conf.exists()) return names;
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new java.io.FileInputStream(settingsFile)))) {
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(new java.io.FileInputStream(conf)))) {
             for (int i = 0; i < 5; i++) {
-                String line = reader.readLine();
+                String line = br.readLine();
                 if (line != null && !line.trim().isEmpty()) {
                     names[i] = line.trim();
                 }
             }
-        } catch (IOException e) { /* return defaults */ }
+        } catch (IOException e) { /* use defaults */ }
         return names;
     }
 
-    /** Save a single storage name by index */
-    public static void saveStorageName(Context context, int index, String name) {
-        String[] names = loadStorageNames(context);
-        names[index] = name;
+    // Save a single storage name by index.
+    public static void saveName(Context ctx, int idx, String name) {
+        String[] names = loadNames(ctx);
+        names[idx] = name;
 
-        File settingsFile = new File(context.getFilesDir(), SETTINGS_FILE);
-        try (BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(new java.io.FileOutputStream(settingsFile)))) {
+        File conf = new File(ctx.getFilesDir(), CONF_FILE);
+        try (BufferedWriter bw = new BufferedWriter(
+                new OutputStreamWriter(new java.io.FileOutputStream(conf)))) {
             for (int i = 0; i < 5; i++) {
-                writer.write(names[i]);
-                writer.newLine();
+                bw.write(names[i]);
+                bw.newLine();
             }
         } catch (IOException e) { /* ignore */ }
     }
 
-    // ========== Next Number Calculation ==========
-
-    /**
-     * Find the next available number for a storage slot.
-     * Scans files like A00003.jpg, returns max+1 (e.g., 4).
-     * If empty, returns 0.
-     */
-    public static int getNextNumber(Context context, IO1.VFile storageDir) {
-        List<IO1.VFile> files = storageDir.ListDir(context);
+    // Find next available number by scanning existing files.
+    public static int nextFileNum(Context ctx, IO1.VFile dir) {
+        List<IO1.VFile> files = dir.ListDir(ctx);
         int maxNum = -1;
         for (IO1.VFile f : files) {
-            String name = f.GetName(context);
+            String name = f.GetName(ctx);
             if (name == null || name.length() < 2) continue;
-            int dotPos = name.lastIndexOf('.');
-            if (dotPos <= 1) continue;
+            int dot = name.lastIndexOf('.');
+            if (dot <= 1) continue;
             try {
-                int num = Integer.parseInt(name.substring(1, dotPos));
+                int num = Integer.parseInt(name.substring(1, dot));
                 if (num > maxNum) maxNum = num;
             } catch (NumberFormatException e) { /* skip */ }
         }
         return maxNum + 1;
     }
 
-    /** Format a storage filename: prefix + 5-digit number + extension */
-    public static String formatFileName(String prefix, int number, String extension) {
-        return String.format("%s%05d.%s", prefix, number, extension);
+    // Format filename: prefix + 5-digit number + extension.
+    public static String fmtFileName(String tag, int num, String ext) {
+        return String.format("%s%05d.%s", tag, num, ext);
     }
 
-    // ========== Image Conversion ==========
-
-    /**
-     * Convert an image, writing result to the given OutputStream.
-     * Strips all metadata by decoding and re-encoding.
-     * @return the output filename (with correct extension), or null on error
-     */
-    public static String convertImage(Context context, IO1.VFile source, String mode, OutputStream dest) {
+    // Convert image by decoding and re-encoding (strips metadata).
+    public static String convImage(Context ctx, IO1.VFile src, String mode, OutputStream dest) {
         try {
-            // Decode bitmap from source
-            Bitmap bitmap;
-            try (InputStream is = source.OpenReader(context)) {
-                bitmap = BitmapFactory.decodeStream(is);
+            // Decode source bitmap
+            Bitmap bmp;
+            try (InputStream is = src.OpenReader(ctx)) {
+                bmp = BitmapFactory.decodeStream(is);
             }
-            if (bitmap == null) return null;
+            if (bmp == null) return null;
 
-            // Determine output format
-            Bitmap.CompressFormat format;
-            String extension;
-            int quality;
+            // Resolve output format
+            Bitmap.CompressFormat fmt;
+            String ext;
+            int qual;
 
             switch (mode) {
                 case "jpg":
-                    format = Bitmap.CompressFormat.JPEG;
-                    extension = "jpg";
-                    quality = 90;
+                    fmt = Bitmap.CompressFormat.JPEG; ext = "jpg"; qual = 90;
                     break;
                 case "png":
-                    format = Bitmap.CompressFormat.PNG;
-                    extension = "png";
-                    quality = 100;
+                    fmt = Bitmap.CompressFormat.PNG; ext = "png"; qual = 100;
                     break;
                 case "webp":
-                    format = Bitmap.CompressFormat.WEBP_LOSSY;
-                    extension = "webp";
-                    quality = 80;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
                     break;
                 case "webp_lossless":
-                    format = Bitmap.CompressFormat.WEBP_LOSSLESS;
-                    extension = "webp";
-                    quality = 100;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSLESS; ext = "webp"; qual = 100;
                     break;
                 case "webp_half":
-                    format = Bitmap.CompressFormat.WEBP_LOSSY;
-                    extension = "webp";
-                    quality = 80;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
                     // Scale to half resolution
-                    Bitmap scaled = Bitmap.createScaledBitmap(bitmap,
-                            Math.max(1, bitmap.getWidth() / 2),
-                            Math.max(1, bitmap.getHeight() / 2), true);
-                    bitmap.recycle();
-                    bitmap = scaled;
+                    Bitmap half = Bitmap.createScaledBitmap(bmp,
+                            Math.max(1, bmp.getWidth() / 2),
+                            Math.max(1, bmp.getHeight() / 2), true);
+                    bmp.recycle();
+                    bmp = half;
                     break;
-                case "none":
                 default:
-                    // Re-encode in original format (strips metadata)
-                    String srcName = source.GetName(context).toLowerCase();
-                    if (srcName.endsWith(".png")) {
-                        format = Bitmap.CompressFormat.PNG;
-                        extension = "png";
-                        quality = 100;
-                    } else if (srcName.endsWith(".webp")) {
-                        format = Bitmap.CompressFormat.WEBP_LOSSY;
-                        extension = "webp";
-                        quality = 80;
+                    // Re-encode in original format
+                    String srcLow = src.GetName(ctx).toLowerCase();
+                    if (srcLow.endsWith(".png")) {
+                        fmt = Bitmap.CompressFormat.PNG; ext = "png"; qual = 100;
+                    } else if (srcLow.endsWith(".webp")) {
+                        fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
                     } else {
-                        format = Bitmap.CompressFormat.JPEG;
-                        extension = "jpg";
-                        quality = 90;
+                        fmt = Bitmap.CompressFormat.JPEG; ext = "jpg"; qual = 90;
                     }
                     break;
             }
 
-            // Compress to output
-            bitmap.compress(format, quality, dest);
-            bitmap.recycle();
+            // Compress and write
+            bmp.compress(fmt, qual, dest);
+            bmp.recycle();
 
             // Build output filename
-            String srcName = source.GetName(context);
-            int dotPos = srcName.lastIndexOf('.');
-            String baseName = (dotPos > 0) ? srcName.substring(0, dotPos) : srcName;
-            return baseName + "." + extension;
+            String srcName = src.GetName(ctx);
+            int dot = srcName.lastIndexOf('.');
+            String base = (dot > 0) ? srcName.substring(0, dot) : srcName;
+            return base + "." + ext;
 
         } catch (IOException e) {
             return null;
         }
     }
 
-    /** Get MIME type from extension */
-    public static String getMimeType(String extension) {
-        switch (extension.toLowerCase()) {
+    // Resolve MIME type from extension.
+    public static String mimeType(String ext) {
+        switch (ext.toLowerCase()) {
             case "jpg": case "jpeg": return "image/jpeg";
             case "png": return "image/png";
             case "webp": return "image/webp";
@@ -209,197 +173,153 @@ public class Core {
         }
     }
 
-    /** Get extension from mode string */
-    public static String getExtensionForMode(String mode) {
+    // Resolve file extension from conversion mode.
+    public static String modeToExt(String mode) {
         switch (mode) {
             case "jpg": return "jpg";
             case "png": return "png";
             case "webp": case "webp_lossless": case "webp_half": return "webp";
-            default: return null; // none: keep original
+            default: return null;
         }
     }
 
-    // ========== Downloads/eBookificate output ==========
+    // Create output file in Downloads/eBookificate via MediaStore.
+    public static IO1.VFile makeOutFile(Context ctx, String name) {
+        ContentValues cv = new ContentValues();
+        String mime = "application/octet-stream";
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) mime = mimeType(name.substring(dot + 1).toLowerCase());
 
-    /** Create a file in Downloads/eBookificate/ via MediaStore */
-    public static IO1.VFile createOutputFile(Context context, String fileName) {
-        ContentValues values = new ContentValues();
+        cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
+        cv.put(MediaStore.Downloads.MIME_TYPE, mime);
+        cv.put(MediaStore.Downloads.RELATIVE_PATH,
+                Environment.DIRECTORY_DOWNLOADS + "/" + OUT_DIR);
 
-        // Determine MIME type
-        String mimeType = "application/octet-stream";
-        int dotPos = fileName.lastIndexOf('.');
-        if (dotPos > 0) {
-            String ext = fileName.substring(dotPos + 1).toLowerCase();
-            mimeType = getMimeType(ext);
-        }
-
-        values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-        values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
-        values.put(MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS + "/" + OUTPUT_FOLDER);
-
-        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-        Uri newUri = context.getContentResolver().insert(collection, values);
-        return newUri != null ? new IO1.VFile(newUri, false) : null;
+        Uri col = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        Uri uri = ctx.getContentResolver().insert(col, cv);
+        return uri != null ? new IO1.VFile(uri, false) : null;
     }
 
-    // ========== ZIP Export ==========
-
-    /**
-     * Export all files in a storage directory to a ZIP file in Downloads/eBookificate/.
-     * @param progressCallback called with (current, total) for each file processed
-     * @return true on success
-     */
-    public static boolean exportAsZip(Context context, int slot,
-                                       ProgressCallback progressCallback) {
-        IO1.VFile storageDir = getStorageDir(context, slot);
-        List<IO1.VFile> files = storageDir.ListDir(context);
+    // Export storage slot as ZIP to Downloads.
+    public static boolean exportZip(Context ctx, int slot, ProgressCB cb) {
+        IO1.VFile dir = getStoreDir(ctx, slot);
+        List<IO1.VFile> files = dir.ListDir(ctx);
         if (files.isEmpty()) return false;
 
-        // Sort by name
-        List<String> names = new ArrayList<>();
-        for (IO1.VFile f : files) names.add(f.GetName(context));
-        Collections.sort(names);
-
-        String zipName = SLOT_PREFIXES[slot] + ".zip";
-        IO1.VFile zipFile = createOutputFile(context, zipName);
+        String zipName = SLOT_TAG[slot] + ".zip";
+        IO1.VFile zipFile = makeOutFile(ctx, zipName);
         if (zipFile == null) return false;
 
-        try (OutputStream os = zipFile.OpenWriter(context, false);
+        try (OutputStream os = zipFile.OpenWriter(ctx, false);
              ZipOutputStream zos = new ZipOutputStream(os)) {
 
-            byte[] buffer = new byte[8192];
-            int current = 0;
+            byte[] buf = new byte[8192];
+            int cur = 0;
 
             for (IO1.VFile f : files) {
-                String name = f.GetName(context);
+                String name = f.GetName(ctx);
                 zos.putNextEntry(new ZipEntry(name));
-
-                try (InputStream is = f.OpenReader(context)) {
+                try (InputStream is = f.OpenReader(ctx)) {
                     int len;
-                    while ((len = is.read(buffer)) > 0) {
-                        zos.write(buffer, 0, len);
-                    }
+                    while ((len = is.read(buf)) > 0) zos.write(buf, 0, len);
                 }
                 zos.closeEntry();
-
-                current++;
-                if (progressCallback != null) {
-                    progressCallback.onProgress(current, files.size());
-                }
+                cur++;
+                if (cb != null) cb.onProgress(cur, files.size());
             }
             return true;
-
         } catch (IOException e) {
             return false;
         }
     }
 
-    // ========== Batch Convert (for Service) ==========
-
-    /**
-     * Batch convert images to Downloads/eBookificate/.
-     * Used by ConvertActivity → ConvertService.
-     */
-    public static int batchConvertToDownloads(Context context, List<IO1.VFile> sources, String mode,
-                                               ProgressCallback progressCallback) {
-        int success = 0;
-        for (int i = 0; i < sources.size(); i++) {
-            IO1.VFile src = sources.get(i);
-            String outName = getConvertedFileName(context, src, mode);
-            IO1.VFile outFile = createOutputFile(context, outName);
-            if (outFile != null) {
-                try (OutputStream os = outFile.OpenWriter(context, false)) {
-                    String result = convertImage(context, src, mode, os);
-                    if (result != null) success++;
-                } catch (IOException e) { /* skip */ }
+    // Batch convert files to Downloads/eBookificate.
+    public static int batchConvert(Context ctx, List<IO1.VFile> srcs, String mode, ProgressCB cb) {
+        int ok = 0;
+        for (int i = 0; i < srcs.size(); i++) {
+            IO1.VFile src = srcs.get(i);
+            String outName = convFileName(ctx, src, mode);
+            IO1.VFile out = makeOutFile(ctx, outName);
+            if (out != null) {
+                try (OutputStream os = out.OpenWriter(ctx, false)) {
+                    if (convImage(ctx, src, mode, os) != null) ok++;
+                    else out.Delete(ctx);
+                } catch (IOException e) {
+                    out.Delete(ctx);
+                }
             }
-            if (progressCallback != null) {
-                progressCallback.onProgress(i + 1, sources.size());
-            }
+            if (cb != null) cb.onProgress(i + 1, srcs.size());
         }
-        return success;
+        return ok;
     }
 
-    /**
-     * Convert all images in a storage slot, replacing files in-place.
-     * Used by StorageActivity → ConvertService.
-     */
-    public static int convertStorage(Context context, int slot, String mode,
-                                      ProgressCallback progressCallback) {
-        IO1.VFile storageDir = getStorageDir(context, slot);
-        List<IO1.VFile> files = storageDir.ListDir(context);
+    // Convert all images in a storage slot in-place.
+    public static int convStorage(Context ctx, int slot, String mode, ProgressCB cb) {
+        IO1.VFile dir = getStoreDir(ctx, slot);
+        List<IO1.VFile> files = dir.ListDir(ctx);
         if (files.isEmpty()) return 0;
 
-        String prefix = SLOT_PREFIXES[slot];
-        String newExt = getExtensionForMode(mode);
-        int success = 0;
+        String newExt = modeToExt(mode);
+        int ok = 0;
 
         for (int i = 0; i < files.size(); i++) {
             IO1.VFile src = files.get(i);
-            String srcName = src.GetName(context);
+            String srcName = src.GetName(ctx);
 
-            // Determine output extension
+            // Resolve output extension
             String ext = newExt;
             if (ext == null) {
-                // none mode: keep original extension
-                int dotPos = srcName.lastIndexOf('.');
-                ext = (dotPos > 0) ? srcName.substring(dotPos + 1) : "jpg";
+                int dot = srcName.lastIndexOf('.');
+                ext = (dot > 0) ? srcName.substring(dot + 1) : "jpg";
             }
 
-            // Create temp output file
-            String tempName = "_tmp_" + i + "." + ext;
+            // Write to temp file, then swap
+            String tmpName = "._tmp_" + i + "." + ext;
+            IO1.VFile tmp = null;
             try {
-                IO1.VFile tmpFile = storageDir.CreateFile(context, getMimeType(ext), tempName);
-                if (tmpFile == null) continue;
+                tmp = dir.CreateFile(ctx, mimeType(ext), tmpName);
+                if (tmp == null) continue;
 
-                try (OutputStream os = tmpFile.OpenWriter(context, false)) {
-                    String result = convertImage(context, src, mode, os);
-                    if (result != null) {
-                        // Delete original, rename temp to proper name
+                try (OutputStream os = tmp.OpenWriter(ctx, false)) {
+                    if (convImage(ctx, src, mode, os) != null) {
                         String outName = srcName;
-                        int dotPos = srcName.lastIndexOf('.');
-                        if (dotPos > 0 && newExt != null) {
-                            outName = srcName.substring(0, dotPos) + "." + newExt;
-                        }
-                        src.Delete(context);
-                        tmpFile.Rename(context, outName);
-                        success++;
-                    } else {
-                        tmpFile.Delete(context);
+                        int dot = srcName.lastIndexOf('.');
+                        if (dot > 0 && newExt != null)
+                            outName = srcName.substring(0, dot) + "." + newExt;
+                        src.Delete(ctx);
+                        tmp.Rename(ctx, outName);
+                        tmp = null;
+                        ok++;
                     }
                 }
             } catch (IOException e) { /* skip */ }
-
-            if (progressCallback != null) {
-                progressCallback.onProgress(i + 1, files.size());
+            finally {
+                // Cleanup leftover temp file
+                if (tmp != null) tmp.Delete(ctx);
             }
+
+            if (cb != null) cb.onProgress(i + 1, files.size());
         }
-        return success;
+        return ok;
     }
 
-    /** Get the output filename for a converted file */
-    private static String getConvertedFileName(Context context, IO1.VFile source, String mode) {
-        String srcName = source.GetName(context);
-        String newExt = getExtensionForMode(mode);
-        if (newExt == null) return srcName; // none mode
-        int dotPos = srcName.lastIndexOf('.');
-        String baseName = (dotPos > 0) ? srcName.substring(0, dotPos) : srcName;
-        return baseName + "." + newExt;
+    // Build converted output filename.
+    private static String convFileName(Context ctx, IO1.VFile src, String mode) {
+        String name = src.GetName(ctx);
+        String ext = modeToExt(mode);
+        if (ext == null) return name;
+        int dot = name.lastIndexOf('.');
+        String base = (dot > 0) ? name.substring(0, dot) : name;
+        return base + "." + ext;
     }
 
-    /** Reset a storage slot: delete all files */
-    public static void resetStorage(Context context, int slot) {
-        IO1.VFile storageDir = getStorageDir(context, slot);
-        List<IO1.VFile> files = storageDir.ListDir(context);
-        for (IO1.VFile f : files) {
-            f.Delete(context);
-        }
+    // Delete all files in a storage slot.
+    public static void resetStore(Context ctx, int slot) {
+        IO1.VFile dir = getStoreDir(ctx, slot);
+        for (IO1.VFile f : dir.ListDir(ctx)) f.Delete(ctx);
     }
 
-    // ========== Callback Interface ==========
-
-    public interface ProgressCallback {
+    public interface ProgressCB {
         void onProgress(int current, int total);
     }
 }

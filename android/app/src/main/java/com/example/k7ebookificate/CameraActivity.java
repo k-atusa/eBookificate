@@ -6,6 +6,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,142 +29,137 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * CameraX-based continuous capture activity for book scanning.
- * Stays open until user presses back. Each tap of the shutter button
- * saves a photo to the storage slot with auto-incremented numbering.
- */
+// CameraX continuous capture for book scanning.
 public class CameraActivity extends AppCompatActivity {
 
-    private static final String TAG = "CameraActivity";
+    private static final String TAG = "Camera";
 
     private int slot;
-    private int captureCount = 0;
-    private ImageCapture imageCapture;
-    private ExecutorService cameraExecutor;
+    private int snapCount = 0;
+    private ImageCapture capture;
+    private ExecutorService camWork;
     private TextView txtCount;
-    private boolean isCapturing = false;
+    private boolean taking = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
         setContentView(R.layout.view_camera);
 
         slot = getIntent().getIntExtra("slot", 0);
         txtCount = findViewById(R.id.txtCount);
-        cameraExecutor = Executors.newSingleThreadExecutor();
+        camWork = Executors.newSingleThreadExecutor();
 
-        // Back button
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        findViewById(R.id.btnCapture).setOnClickListener(v -> takePhoto());
 
-        // Capture button
-        findViewById(R.id.btnCapture).setOnClickListener(v -> capturePhoto());
-
-        // Start camera
+        // Start camera if permission granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
-            startCamera();
+            initCamera();
         } else {
-            Toast.makeText(this, "카메라 권한이 필요합니다", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
             finish();
         }
     }
 
-    private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+    // Bind CameraX preview and capture use cases.
+    private void initCamera() {
+        ListenableFuture<ProcessCameraProvider> fut =
                 ProcessCameraProvider.getInstance(this);
 
-        cameraProviderFuture.addListener(() -> {
+        fut.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
-                // Preview
-                PreviewView previewView = findViewById(R.id.previewView);
+                ProcessCameraProvider prov = fut.get();
+                PreviewView pv = findViewById(R.id.previewView);
                 Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+                preview.setSurfaceProvider(pv.getSurfaceProvider());
 
-                // ImageCapture
-                imageCapture = new ImageCapture.Builder()
+                capture = new ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                         .build();
 
-                // Use back camera
-                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-
-                // Bind use cases
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
-
+                prov.unbindAll();
+                prov.bindToLifecycle(this,
+                        CameraSelector.DEFAULT_BACK_CAMERA, preview, capture);
             } catch (Exception e) {
-                Log.e(TAG, "Camera start failed", e);
-                Toast.makeText(this, "카메라 시작 실패", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "initCamera: " + e.getMessage(), e);
+                Toast.makeText(this,
+                        "ERR: camera init: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
-    private void capturePhoto() {
-        if (imageCapture == null || isCapturing) return;
-        isCapturing = true;
+    // Capture a single photo and save to storage.
+    private void takePhoto() {
+        if (capture == null || taking) return;
+        taking = true;
 
-        imageCapture.takePicture(cameraExecutor, new ImageCapture.OnImageCapturedCallback() {
+        capture.takePicture(camWork, new ImageCapture.OnImageCapturedCallback() {
             @Override
-            public void onCaptureSuccess(@NonNull ImageProxy image) {
+            public void onCaptureSuccess(@NonNull ImageProxy img) {
                 try {
-                    saveImageToStorage(image);
-                    captureCount++;
+                    saveImage(img);
+                    snapCount++;
                     runOnUiThread(() -> {
-                        txtCount.setText(captureCount + "장 촬영");
-                        isCapturing = false;
+                        txtCount.setText(snapCount + " captured");
+                        // Blink animation for visibility
+                        Animation blink = new AlphaAnimation(1f, 0f);
+                        blink.setDuration(125);
+                        blink.setRepeatMode(Animation.REVERSE);
+                        blink.setRepeatCount(3);
+                        txtCount.startAnimation(blink);
+                        taking = false;
                     });
                 } catch (Exception e) {
-                    Log.e(TAG, "Save failed", e);
+                    Log.e(TAG, "saveImage: " + e.getMessage(), e);
                     runOnUiThread(() -> {
-                        Toast.makeText(CameraActivity.this, "저장 실패", Toast.LENGTH_SHORT).show();
-                        isCapturing = false;
+                        Toast.makeText(CameraActivity.this,
+                                "ERR: save: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        taking = false;
                     });
                 } finally {
-                    image.close();
+                    img.close();
                 }
             }
 
             @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-                Log.e(TAG, "Capture failed", exception);
+            public void onError(@NonNull ImageCaptureException ex) {
+                Log.e(TAG, "capture: " + ex.getMessage(), ex);
                 runOnUiThread(() -> {
-                    Toast.makeText(CameraActivity.this, "촬영 실패", Toast.LENGTH_SHORT).show();
-                    isCapturing = false;
+                    Toast.makeText(CameraActivity.this,
+                            "ERR: capture: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                    taking = false;
                 });
             }
         });
     }
 
-    private void saveImageToStorage(ImageProxy image) throws Exception {
-        // Convert ImageProxy to Bitmap
-        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+    // Decode ImageProxy and write JPEG to storage slot.
+    private void saveImage(ImageProxy img) throws Exception {
+        ByteBuffer buf = img.getPlanes()[0].getBuffer();
+        byte[] data = new byte[buf.remaining()];
+        buf.get(data);
+        Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
+        if (bmp == null) throw new Exception("decode failed");
 
-        if (bitmap == null) throw new Exception("Failed to decode captured image");
+        IO1.VFile dir = Core.getStoreDir(this, slot);
+        int num = Core.nextFileNum(this, dir);
+        String tag = Core.getSlotTag(slot);
+        String name = Core.fmtFileName(tag, num, "jpg");
 
-        // Get next number and save
-        IO1.VFile storageDir = Core.getStorageDir(this, slot);
-        int nextNum = Core.getNextNumber(this, storageDir);
-        String prefix = Core.getSlotPrefix(slot);
-        String fileName = Core.formatFileName(prefix, nextNum, "jpg");
+        IO1.VFile out = dir.CreateFile(this, "image/jpeg", name);
+        if (out == null) throw new Exception("createFile failed: " + name);
 
-        IO1.VFile outFile = storageDir.CreateFile(this, "image/jpeg", fileName);
-        if (outFile == null) throw new Exception("Failed to create output file");
-
-        try (OutputStream os = outFile.OpenWriter(this, false)) {
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, os);
+        try (OutputStream os = out.OpenWriter(this, false)) {
+            bmp.compress(Bitmap.CompressFormat.JPEG, 90, os);
         }
-        bitmap.recycle();
+        bmp.recycle();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (cameraExecutor != null) cameraExecutor.shutdown();
+        if (camWork != null) camWork.shutdown();
     }
 }

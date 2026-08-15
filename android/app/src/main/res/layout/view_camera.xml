@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 상단 오버레이: 촬영 카운트 -->
+    <!-- upper: picture count -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -25,7 +25,7 @@
         android:layout_gravity="top">
 
         <ImageView style="@style/icon" android:id="@+id/btnBack"
-            android:src="@drawable/ic_arrow_back" android:contentDescription="뒤로"
+            android:src="@drawable/ic_arrow_back" android:contentDescription="Back"
             android:tint="#FFFFFF"
             android:clickable="true" android:focusable="true" />
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
@@ -33,13 +33,13 @@
             android:id="@+id/txtCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0장 촬영"
+            android:text="0 pics"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 하단 오버레이: 촬영 버튼 -->
+    <!-- lower: button -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -48,7 +48,7 @@
         android:paddingBottom="64dp"
         android:background="#44000000">
 
-        <!-- 촬영 버튼 (원형) -->
+        <!-- capture -->
         <View
             android:id="@+id/btnCapture"
             android:layout_width="72dp"

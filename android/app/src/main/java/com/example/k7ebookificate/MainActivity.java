@@ -3,94 +3,83 @@ package com.example.k7ebookificate;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
-import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.card.MaterialCardView;
-
 public class MainActivity extends AppCompatActivity {
 
-    private static final int[] CARD_IDS = {
+    private static final int[] CARD_ID = {
             R.id.cardStorage0, R.id.cardStorage1, R.id.cardStorage2,
             R.id.cardStorage3, R.id.cardStorage4
     };
-    private static final int[] TEXT_IDS = {
+    private static final int[] TEXT_ID = {
             R.id.txtStorage0, R.id.txtStorage1, R.id.txtStorage2,
             R.id.txtStorage3, R.id.txtStorage4
     };
-    private static final int[] EDIT_IDS = {
+    private static final int[] EDIT_ID = {
             R.id.btnEdit0, R.id.btnEdit1, R.id.btnEdit2,
             R.id.btnEdit3, R.id.btnEdit4
     };
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
         setContentView(R.layout.view_main);
 
-        // Ensure storage directories exist
-        for (int i = 0; i < 5; i++) {
-            Core.getStorageDir(this, i);
-        }
+        // Init storage directories
+        for (int i = 0; i < 5; i++) Core.getStoreDir(this, i);
 
         // Convert button
-        findViewById(R.id.btnConvert).setOnClickListener(v -> {
-            startActivity(new Intent(this, ConvertActivity.class));
-        });
+        findViewById(R.id.btnConvert).setOnClickListener(v ->
+                startActivity(new Intent(this, ConvertActivity.class)));
 
-        // Storage cards
+        // Storage card click and edit button
         for (int i = 0; i < 5; i++) {
             final int slot = i;
-
-            // Card click → open StorageActivity
-            findViewById(CARD_IDS[i]).setOnClickListener(v -> {
-                Intent intent = new Intent(this, StorageActivity.class);
-                intent.putExtra("slot", slot);
-                startActivity(intent);
+            findViewById(CARD_ID[i]).setOnClickListener(v -> {
+                Intent it = new Intent(this, StorageActivity.class);
+                it.putExtra("slot", slot);
+                startActivity(it);
             });
-
-            // Edit button → rename dialog
-            findViewById(EDIT_IDS[i]).setOnClickListener(v -> showRenameDialog(slot));
+            findViewById(EDIT_ID[i]).setOnClickListener(v -> showRename(slot));
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        refreshNames();
+        loadNames();
     }
 
-    private void refreshNames() {
-        String[] names = Core.loadStorageNames(this);
-        for (int i = 0; i < 5; i++) {
-            ((TextView) findViewById(TEXT_IDS[i])).setText(names[i]);
-        }
+    // Refresh storage name labels.
+    private void loadNames() {
+        String[] names = Core.loadNames(this);
+        for (int i = 0; i < 5; i++)
+            ((TextView) findViewById(TEXT_ID[i])).setText(names[i]);
     }
 
-    private void showRenameDialog(int slot) {
-        String[] names = Core.loadStorageNames(this);
-
+    // Show rename dialog for a storage slot.
+    private void showRename(int slot) {
+        String[] names = Core.loadNames(this);
         EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT);
         input.setText(names[slot]);
         input.selectAll();
 
         new AlertDialog.Builder(this)
-                .setTitle("이름 변경")
+                .setTitle("Rename")
                 .setView(input)
-                .setPositiveButton("저장", (d, w) -> {
-                    String newName = input.getText().toString().trim();
-                    if (!newName.isEmpty()) {
-                        Core.saveStorageName(this, slot, newName);
-                        refreshNames();
+                .setPositiveButton("Save", (d, w) -> {
+                    String val = input.getText().toString().trim();
+                    if (!val.isEmpty()) {
+                        Core.saveName(this, slot, val);
+                        loadNames();
                     }
                 })
-                .setNegativeButton("취소", null)
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 }

@@ -18,130 +18,134 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * RecyclerView Adapter for displaying image thumbnails in a grid.
- * Loads thumbnails in background threads with inSampleSize for memory efficiency.
- */
-public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
+// Grid adapter for image thumbnails with click/long-click callbacks.
+public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
 
-    public interface OnItemLongClickListener {
-        void onItemLongClick(int position, IO1.VFile file);
-    }
+    public interface OnClick { void onItemClick(int pos, IO1.VFile file); }
+    public interface OnLong  { void onItemLongClick(int pos, IO1.VFile file); }
 
-    private final Context context;
+    private final Context ctx;
     private final List<IO1.VFile> items = new ArrayList<>();
-    private final ExecutorService thumbExecutor = Executors.newFixedThreadPool(3);
-    private OnItemLongClickListener longClickListener;
+    private final ExecutorService thumbWork = Executors.newFixedThreadPool(3);
+    private OnClick tapCB;
+    private OnLong holdCB;
+    private int colWidth = 0;
 
-    public ImageAdapter(Context context) {
-        this.context = context;
-    }
+    public ImageAdapter(Context ctx) { this.ctx = ctx; }
 
-    public void setItems(List<IO1.VFile> newItems) {
+    public void setItems(List<IO1.VFile> list) {
         items.clear();
-        items.addAll(newItems);
+        items.addAll(list);
         notifyDataSetChanged();
     }
 
-    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
-        this.longClickListener = listener;
-    }
+    public void setOnItemClickListener(OnClick cb) { this.tapCB = cb; }
+    public void setOnItemLongClickListener(OnLong cb) { this.holdCB = cb; }
 
-    @NonNull
+    // Calculate column width after RecyclerView layout.
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(context).inflate(R.layout.item_image, parent, false);
-        return new ViewHolder(view);
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        IO1.VFile file = items.get(position);
-        String name = file.GetName(context);
-        holder.txtName.setText(name);
-
-        // Make thumbnail square based on view width
-        holder.imgThumb.post(() -> {
-            int width = holder.imgThumb.getWidth();
-            if (width > 0) {
-                ViewGroup.LayoutParams params = holder.imgThumb.getLayoutParams();
-                params.height = width;
-                holder.imgThumb.setLayoutParams(params);
-            }
+    public void onAttachedToRecyclerView(@NonNull RecyclerView rv) {
+        super.onAttachedToRecyclerView(rv);
+        rv.post(() -> {
+            int inner = rv.getWidth() - rv.getPaddingLeft() - rv.getPaddingRight();
+            if (inner > 0) colWidth = inner / 3;
         });
+    }
 
-        // Reset image while loading
-        holder.imgThumb.setImageBitmap(null);
-        holder.imgThumb.setBackgroundColor(0x20808080);
+    @NonNull @Override
+    public VH onCreateViewHolder(@NonNull ViewGroup parent, int type) {
+        View v = LayoutInflater.from(ctx).inflate(R.layout.item_image, parent, false);
+        return new VH(v);
+    }
 
-        // Load thumbnail in background
-        final int pos = position;
-        thumbExecutor.submit(() -> {
+    @Override
+    public void onBindViewHolder(@NonNull VH h, int pos) {
+        IO1.VFile file = items.get(pos);
+        String name = file.GetName(ctx);
+        h.txtName.setText(name);
+
+        // Set square thumbnail size
+        if (colWidth > 0) {
+            int pad = h.itemView.getPaddingLeft() + h.itemView.getPaddingRight();
+            int size = colWidth - pad;
+            ViewGroup.LayoutParams lp = h.imgThumb.getLayoutParams();
+            if (lp.height != size) { lp.height = size; h.imgThumb.setLayoutParams(lp); }
+        } else {
+            h.itemView.post(() -> {
+                int w = h.itemView.getWidth();
+                int pad = h.itemView.getPaddingLeft() + h.itemView.getPaddingRight();
+                int size = w - pad;
+                if (size > 0) {
+                    ViewGroup.LayoutParams lp = h.imgThumb.getLayoutParams();
+                    if (lp.height != size) { lp.height = size; h.imgThumb.setLayoutParams(lp); }
+                }
+            });
+        }
+
+        // Reset placeholder
+        h.imgThumb.setImageBitmap(null);
+        h.imgThumb.setBackgroundColor(0x20808080);
+
+        // Load thumbnail asynchronously
+        final int idx = pos;
+        thumbWork.submit(() -> {
             try {
-                Bitmap thumb = loadThumbnail(file, 256);
-                if (thumb != null && holder.getAdapterPosition() == pos) {
-                    holder.imgThumb.post(() -> {
-                        holder.imgThumb.setImageBitmap(thumb);
-                        holder.imgThumb.setBackgroundColor(0);
+                Bitmap thumb = decodThumb(file, 256);
+                if (thumb != null && h.getAdapterPosition() == idx) {
+                    h.imgThumb.post(() -> {
+                        h.imgThumb.setImageBitmap(thumb);
+                        h.imgThumb.setBackgroundColor(0);
                     });
                 }
             } catch (Exception e) { /* ignore */ }
         });
 
-        // Long click for delete
-        holder.itemView.setOnLongClickListener(v -> {
-            if (longClickListener != null) {
-                longClickListener.onItemLongClick(position, file);
-            }
+        // Tap to view
+        h.itemView.setOnClickListener(v -> {
+            if (tapCB != null) tapCB.onItemClick(h.getAdapterPosition(), file);
+        });
+
+        // Hold to delete
+        h.itemView.setOnLongClickListener(v -> {
+            if (holdCB != null) holdCB.onItemLongClick(h.getAdapterPosition(), file);
             return true;
         });
     }
 
-    @Override
-    public int getItemCount() {
-        return items.size();
-    }
+    @Override public int getItemCount() { return items.size(); }
 
-    private Bitmap loadThumbnail(IO1.VFile file, int targetSize) {
+    // Decode thumbnail with inSampleSize for memory efficiency.
+    private Bitmap decodThumb(IO1.VFile file, int maxSize) {
         try {
-            // First pass: get dimensions
-            BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inJustDecodeBounds = true;
-            try (InputStream is = file.OpenReader(context)) {
-                BitmapFactory.decodeStream(is, null, opts);
+            BitmapFactory.Options opt = new BitmapFactory.Options();
+            opt.inJustDecodeBounds = true;
+            try (InputStream is = file.OpenReader(ctx)) {
+                BitmapFactory.decodeStream(is, null, opt);
             }
 
-            // Calculate inSampleSize
-            int w = opts.outWidth;
-            int h = opts.outHeight;
-            int inSampleSize = 1;
-            while (w / inSampleSize > targetSize || h / inSampleSize > targetSize) {
-                inSampleSize *= 2;
-            }
+            int sample = 1;
+            while (opt.outWidth / sample > maxSize || opt.outHeight / sample > maxSize)
+                sample *= 2;
 
-            // Second pass: decode with sample size
-            opts.inJustDecodeBounds = false;
-            opts.inSampleSize = inSampleSize;
-            try (InputStream is = file.OpenReader(context)) {
-                return BitmapFactory.decodeStream(is, null, opts);
+            opt.inJustDecodeBounds = false;
+            opt.inSampleSize = sample;
+            try (InputStream is = file.OpenReader(ctx)) {
+                return BitmapFactory.decodeStream(is, null, opt);
             }
         } catch (Exception e) {
             return null;
         }
     }
 
-    public void shutdown() {
-        thumbExecutor.shutdown();
-    }
+    public void shutdown() { thumbWork.shutdown(); }
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
+    static class VH extends RecyclerView.ViewHolder {
         ImageView imgThumb;
         TextView txtName;
-
-        ViewHolder(View itemView) {
-            super(itemView);
-            imgThumb = itemView.findViewById(R.id.imgThumb);
-            txtName = itemView.findViewById(R.id.txtName);
+        VH(View v) {
+            super(v);
+            imgThumb = v.findViewById(R.id.imgThumb);
+            txtName = v.findViewById(R.id.txtName);
         }
     }
 }

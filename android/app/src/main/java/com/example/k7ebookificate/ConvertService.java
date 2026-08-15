@@ -4,7 +4,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -13,42 +12,24 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Foreground Service for heavy tasks: batch convert, storage convert, ZIP export.
- * Communicates progress via SVCC1 shared slots.
- *
- * Actions (via Intent):
- *   "CONVERT"         — batch convert files to Downloads/eBookificate/
- *                       extras: ArrayList<VFile> "files", String "mode"
- *   "CONVERT_STORAGE" — convert all files in a storage slot in-place
- *                       extras: int "slot", String "mode"
- *   "EXPORT_ZIP"      — export a storage slot as ZIP
- *                       extras: int "slot"
- *
- * Progress reported via SVCC1:
- *   IntSlots[0] = current, IntSlots[1] = total
- *   StringSlots[0] = status message
- *   ToMainBus → "DONE" when complete
- */
+// Foreground service for batch convert, storage convert, ZIP export.
 public class ConvertService extends Service {
 
-    private static final String CHANNEL_ID = "convert_channel";
-    private static final int NOTIFICATION_ID = 1;
-
-    private ExecutorService executor;
+    private static final String CH_ID = "conv_ch";
+    private static final int NOTIF_ID = 1;
+    private ExecutorService worker;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        executor = Executors.newSingleThreadExecutor();
-        createNotificationChannel();
+        worker = Executors.newSingleThreadExecutor();
+        initChannel();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Start foreground immediately
-        Notification notification = buildNotification("작업 준비 중...");
-        startForeground(NOTIFICATION_ID, notification,
+        startForeground(NOTIF_ID, buildNotif("Preparing..."),
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
 
         if (intent == null || intent.getAction() == null) {
@@ -59,18 +40,12 @@ public class ConvertService extends Service {
         String action = intent.getAction();
         Bundle extras = intent.getExtras();
 
-        executor.submit(() -> {
+        worker.submit(() -> {
             try {
                 switch (action) {
-                    case "CONVERT":
-                        handleConvert(extras);
-                        break;
-                    case "CONVERT_STORAGE":
-                        handleConvertStorage(extras);
-                        break;
-                    case "EXPORT_ZIP":
-                        handleExportZip(extras);
-                        break;
+                    case "CONVERT":      runConvert(extras); break;
+                    case "CONV_STORE":   runConvStore(extras); break;
+                    case "EXPORT_ZIP":   runExportZip(extras); break;
                 }
             } finally {
                 SVCC1.getChan().SendToMain("DONE", null);
@@ -81,71 +56,66 @@ public class ConvertService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void handleConvert(Bundle extras) {
-        if (extras == null) return;
-        ArrayList<IO1.VFile> files = extras.getParcelableArrayList("files", IO1.VFile.class);
-        String mode = extras.getString("mode", "none");
+    private void runConvert(Bundle ext) {
+        if (ext == null) return;
+        ArrayList<IO1.VFile> files = ext.getParcelableArrayList("files", IO1.VFile.class);
+        String mode = ext.getString("mode", "none");
         if (files == null || files.isEmpty()) return;
 
-        updateStatus("변환 시작...");
+        setStatus("Converting...");
         SVCC1.getChan().SetInt(1, files.size());
 
-        Core.batchConvertToDownloads(this, files, mode, (current, total) -> {
-            SVCC1.getChan().SetInt(0, current);
-            updateNotification(current + "/" + total + " 변환 중...");
-            updateStatus(current + "/" + total + " 변환 중...");
+        Core.batchConvert(this, files, mode, (cur, total) -> {
+            SVCC1.getChan().SetInt(0, cur);
+            pushNotif(cur + "/" + total + " converting...");
+            setStatus(cur + "/" + total + " converting...");
         });
-
-        updateStatus("변환 완료");
+        setStatus("Done");
     }
 
-    private void handleConvertStorage(Bundle extras) {
-        if (extras == null) return;
-        int slot = extras.getInt("slot", -1);
-        String mode = extras.getString("mode", "none");
+    private void runConvStore(Bundle ext) {
+        if (ext == null) return;
+        int slot = ext.getInt("slot", -1);
+        String mode = ext.getString("mode", "none");
         if (slot < 0 || slot > 4) return;
 
-        updateStatus("저장소 변환 시작...");
+        setStatus("Converting storage...");
 
-        Core.convertStorage(this, slot, mode, (current, total) -> {
-            SVCC1.getChan().SetInt(0, current);
+        Core.convStorage(this, slot, mode, (cur, total) -> {
+            SVCC1.getChan().SetInt(0, cur);
             SVCC1.getChan().SetInt(1, total);
-            updateNotification(current + "/" + total + " 변환 중...");
-            updateStatus(current + "/" + total + " 변환 중...");
+            pushNotif(cur + "/" + total + " converting...");
+            setStatus(cur + "/" + total + " converting...");
         });
-
-        updateStatus("변환 완료");
+        setStatus("Done");
     }
 
-    private void handleExportZip(Bundle extras) {
-        if (extras == null) return;
-        int slot = extras.getInt("slot", -1);
+    private void runExportZip(Bundle ext) {
+        if (ext == null) return;
+        int slot = ext.getInt("slot", -1);
         if (slot < 0 || slot > 4) return;
 
-        updateStatus("ZIP 내보내기 중...");
+        setStatus("Exporting ZIP...");
 
-        Core.exportAsZip(this, slot, (current, total) -> {
-            SVCC1.getChan().SetInt(0, current);
+        Core.exportZip(this, slot, (cur, total) -> {
+            SVCC1.getChan().SetInt(0, cur);
             SVCC1.getChan().SetInt(1, total);
-            updateNotification(current + "/" + total + " 묶는 중...");
-            updateStatus(current + "/" + total + " 묶는 중...");
+            pushNotif(cur + "/" + total + " zipping...");
+            setStatus(cur + "/" + total + " zipping...");
         });
-
-        updateStatus("내보내기 완료");
+        setStatus("Done");
     }
 
-    // ========== Notification ==========
-
-    private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "변환 작업", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("이미지 변환/내보내기 진행 알림");
-        NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(channel);
+    // Create notification channel.
+    private void initChannel() {
+        NotificationChannel ch = new NotificationChannel(
+                CH_ID, "Convert Task", NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription("Image conversion progress");
+        getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
 
-    private Notification buildNotification(String text) {
-        return new Notification.Builder(this, CHANNEL_ID)
+    private Notification buildNotif(String text) {
+        return new Notification.Builder(this, CH_ID)
                 .setContentTitle("eBookificate")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_rotate)
@@ -153,23 +123,19 @@ public class ConvertService extends Service {
                 .build();
     }
 
-    private void updateNotification(String text) {
-        NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.notify(NOTIFICATION_ID, buildNotification(text));
+    private void pushNotif(String text) {
+        getSystemService(NotificationManager.class).notify(NOTIF_ID, buildNotif(text));
     }
 
-    private void updateStatus(String status) {
-        SVCC1.getChan().SetString(0, status);
+    private void setStatus(String msg) {
+        SVCC1.getChan().SetString(0, msg);
     }
 
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    @Override public IBinder onBind(Intent i) { return null; }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (executor != null) executor.shutdown();
+        if (worker != null) worker.shutdown();
     }
 }

@@ -11,30 +11,24 @@
         android:paddingStart="8dp"
         android:paddingEnd="8dp">
 
-        <!-- 앱 타이틀 -->
+        <!-- title -->
         <TextView style="@style/title"
             android:text="eBookificate"
             android:textSize="32sp"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="32dp" />
-        <TextView style="@style/cap"
-            android:text="책 스캔 · 이미지 변환"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="4dp" />
 
+        <!-- Convert Mode -->
         <View android:layout_width="match_parent" android:layout_height="40dp" />
-
-        <!-- Convert 버튼 -->
-        <Button style="@style/btnPri"
-            android:id="@+id/btnConvert"
-            android:text="Convert"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:textSize="18sp" />
-
+            <Button style="@style/btnPri"
+                android:id="@+id/btnConvert"
+                android:text="Convert Image"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:textSize="18sp" />
         <View android:layout_width="match_parent" android:layout_height="32dp" />
 
-        <!-- Storage 섹션 -->
+        <!-- Storage View -->
         <TextView style="@style/title"
             android:text="Storage"
             android:textSize="20sp" />
@@ -46,10 +40,11 @@
             android:id="@+id/cardStorage0"
             android:clickable="true" android:focusable="true">
             <LinearLayout style="@style/hbox" android:padding="16dp">
-                <TextView style="@style/body" android:id="@+id/txtStorage0" android:text="Scan 1" />
-                <View style="@style/spacer" />
+                <TextView style="@style/body" android:id="@+id/txtStorage0" android:text="Scan 1"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="8dp" />
                 <ImageView style="@style/icon" android:id="@+id/btnEdit0"
-                    android:src="@drawable/ic_edit" android:contentDescription="이름 변경"
+                    android:src="@drawable/ic_edit" android:contentDescription="Rename"
                     android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -61,10 +56,11 @@
             android:id="@+id/cardStorage1"
             android:clickable="true" android:focusable="true">
             <LinearLayout style="@style/hbox" android:padding="16dp">
-                <TextView style="@style/body" android:id="@+id/txtStorage1" android:text="Scan 2" />
-                <View style="@style/spacer" />
+                <TextView style="@style/body" android:id="@+id/txtStorage1" android:text="Scan 2"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="8dp" />
                 <ImageView style="@style/icon" android:id="@+id/btnEdit1"
-                    android:src="@drawable/ic_edit" android:contentDescription="이름 변경"
+                    android:src="@drawable/ic_edit" android:contentDescription="Rename"
                     android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -76,10 +72,11 @@
             android:id="@+id/cardStorage2"
             android:clickable="true" android:focusable="true">
             <LinearLayout style="@style/hbox" android:padding="16dp">
-                <TextView style="@style/body" android:id="@+id/txtStorage2" android:text="Scan 3" />
-                <View style="@style/spacer" />
+                <TextView style="@style/body" android:id="@+id/txtStorage2" android:text="Scan 3"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="8dp" />
                 <ImageView style="@style/icon" android:id="@+id/btnEdit2"
-                    android:src="@drawable/ic_edit" android:contentDescription="이름 변경"
+                    android:src="@drawable/ic_edit" android:contentDescription="Rename"
                     android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -91,10 +88,11 @@
             android:id="@+id/cardStorage3"
             android:clickable="true" android:focusable="true">
             <LinearLayout style="@style/hbox" android:padding="16dp">
-                <TextView style="@style/body" android:id="@+id/txtStorage3" android:text="Scan 4" />
-                <View style="@style/spacer" />
+                <TextView style="@style/body" android:id="@+id/txtStorage3" android:text="Scan 4"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="8dp" />
                 <ImageView style="@style/icon" android:id="@+id/btnEdit3"
-                    android:src="@drawable/ic_edit" android:contentDescription="이름 변경"
+                    android:src="@drawable/ic_edit" android:contentDescription="Rename"
                     android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -106,10 +104,11 @@
             android:id="@+id/cardStorage4"
             android:clickable="true" android:focusable="true">
             <LinearLayout style="@style/hbox" android:padding="16dp">
-                <TextView style="@style/body" android:id="@+id/txtStorage4" android:text="Scan 5" />
-                <View style="@style/spacer" />
+                <TextView style="@style/body" android:id="@+id/txtStorage4" android:text="Scan 5"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:maxLines="1" android:ellipsize="end" android:layout_marginEnd="8dp" />
                 <ImageView style="@style/icon" android:id="@+id/btnEdit4"
-                    android:src="@drawable/ic_edit" android:contentDescription="이름 변경"
+                    android:src="@drawable/ic_edit" android:contentDescription="Rename"
                     android:clickable="true" android:focusable="true" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

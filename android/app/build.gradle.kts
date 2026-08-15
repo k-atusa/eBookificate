@@ -36,6 +36,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.camera.core)
     implementation(libs.appcompat)
     implementation(libs.documentfile)
     implementation(libs.material)
