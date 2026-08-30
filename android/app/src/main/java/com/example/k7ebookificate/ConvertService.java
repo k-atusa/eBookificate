@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 
 // Foreground service for batch convert, storage convert, ZIP export.
 public class ConvertService extends Service {
-
     private static final String CH_ID = "conv_ch";
     private static final int NOTIF_ID = 1;
     private ExecutorService worker;
@@ -29,8 +28,7 @@ public class ConvertService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Start foreground immediately
-        startForeground(NOTIF_ID, buildNotif("Preparing..."),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        startForeground(NOTIF_ID, buildNotif("Preparing..."), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
 
         if (intent == null || intent.getAction() == null) {
             stopSelf();
@@ -78,7 +76,6 @@ public class ConvertService extends Service {
         int slot = ext.getInt("slot", -1);
         String mode = ext.getString("mode", "none");
         if (slot < 0 || slot > 4) return;
-
         setStatus("Converting storage...");
 
         Core.convStorage(this, slot, mode, (cur, total) -> {
@@ -94,7 +91,6 @@ public class ConvertService extends Service {
         if (ext == null) return;
         int slot = ext.getInt("slot", -1);
         if (slot < 0 || slot > 4) return;
-
         setStatus("Exporting ZIP...");
 
         Core.exportZip(this, slot, (cur, total) -> {
@@ -108,8 +104,7 @@ public class ConvertService extends Service {
 
     // Create notification channel.
     private void initChannel() {
-        NotificationChannel ch = new NotificationChannel(
-                CH_ID, "Convert Task", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CH_ID, "Convert Task", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Image conversion progress");
         getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }

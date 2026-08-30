@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StorageActivity extends AppCompatActivity {
-
     private int slot;
     private ImageAdapter adapter;
     private TextView txtTitle, txtPage, txtStatus;
@@ -39,8 +38,7 @@ public class StorageActivity extends AppCompatActivity {
 
     // Camera result refreshes file list.
     private final ActivityResultLauncher<Intent> camLaunch =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-                    r -> reloadFiles());
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> reloadFiles());
 
     private final ActivityResultLauncher<String> camPerm =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {
@@ -48,14 +46,12 @@ public class StorageActivity extends AppCompatActivity {
                 else Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
             });
 
-    private final ActivityResultLauncher<String> notifPerm =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {});
+    private final ActivityResultLauncher<String> notifPerm = registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {});
 
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         setContentView(R.layout.view_storage);
-
         slot = getIntent().getIntExtra("slot", 0);
 
         // Bind views
@@ -104,8 +100,7 @@ public class StorageActivity extends AppCompatActivity {
         btnConv.setOnClickListener(v -> pickConvMode());
         btnAdd.setClickable(true);
         btnAdd.setOnClickListener(v -> {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                    == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 openCamera();
             } else {
                 camPerm.launch(Manifest.permission.CAMERA);
@@ -139,8 +134,7 @@ public class StorageActivity extends AppCompatActivity {
         });
 
         // Request notification permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS);
         }
     }
@@ -215,7 +209,7 @@ public class StorageActivity extends AppCompatActivity {
             busy = false;
             setMenuOn(true);
             txtStatus.setVisibility(View.GONE);
-            Toast.makeText(this, "ERR: start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ERR start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -244,7 +238,7 @@ public class StorageActivity extends AppCompatActivity {
                         busy = false;
                         setMenuOn(true);
                         txtStatus.setVisibility(View.GONE);
-                        Toast.makeText(StorageActivity.this, "ERR: start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(StorageActivity.this, "ERR start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -311,7 +305,7 @@ public class StorageActivity extends AppCompatActivity {
                 dlg.setOnDismissListener(d -> bmp.recycle());
             }
         } catch (IOException e) {
-            Toast.makeText(this, "ERR: open image: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ERR open image: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
 

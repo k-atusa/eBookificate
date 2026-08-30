@@ -6,7 +6,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -24,16 +27,23 @@ import java.util.zip.ZipOutputStream;
 
 // Core utility: image conversion, storage, settings, ZIP export.
 public class Core {
+    private static final String TAG = "Core";
     private static final String CONF_FILE = "settings.txt";
-    public static final String[] SLOT_TAG = {"A", "B", "C", "D", "E"};
-    private static final String[] INIT_NAME = {"Scan 1", "Scan 2", "Scan 3", "Scan 4", "Scan 5"};
+    public static final String[] SLOT_TAG = { "A", "B", "C", "D", "E" };
+    private static final String[] INIT_NAME = { "Scan 1", "Scan 2", "Scan 3", "Scan 4", "Scan 5" };
     public static final String OUT_DIR = "eBookificate";
     public static final int PAGE_SIZE = 30;
+
+    // Show error via Toast.
+    private static void showErr(Context ctx, String msg) {
+        new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show());
+    }
 
     // Get or create storage directory for slot 0~4.
     public static IO1.VFile getStoreDir(Context ctx, int slot) {
         File dir = new File(ctx.getFilesDir(), SLOT_TAG[slot]);
-        if (!dir.exists()) dir.mkdir();
+        if (!dir.exists())
+            dir.mkdir();
         return IO1.GetLocal(ctx, SLOT_TAG[slot]);
     }
 
@@ -45,9 +55,9 @@ public class Core {
     public static String[] loadNames(Context ctx) {
         String[] names = new String[5];
         System.arraycopy(INIT_NAME, 0, names, 0, 5);
-
         File conf = new File(ctx.getFilesDir(), CONF_FILE);
-        if (!conf.exists()) return names;
+        if (!conf.exists())
+            return names;
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(new java.io.FileInputStream(conf)))) {
@@ -57,7 +67,9 @@ public class Core {
                     names[i] = line.trim();
                 }
             }
-        } catch (IOException e) { /* use defaults */ }
+        } catch (IOException e) {
+            showErr(ctx, "ERR load: " + e.getMessage());
+        }
         return names;
     }
 
@@ -67,13 +79,14 @@ public class Core {
         names[idx] = name;
 
         File conf = new File(ctx.getFilesDir(), CONF_FILE);
-        try (BufferedWriter bw = new BufferedWriter(
-                new OutputStreamWriter(new java.io.FileOutputStream(conf)))) {
+        try (BufferedWriter bw = new BufferedWriter( new OutputStreamWriter( new java.io.FileOutputStream(conf) ) )) {
             for (int i = 0; i < 5; i++) {
                 bw.write(names[i]);
                 bw.newLine();
             }
-        } catch (IOException e) { /* ignore */ }
+        } catch (IOException e) {
+            showErr(ctx, "ERR save: " + e.getMessage());
+        }
     }
 
     // Find next available number by scanning existing files.
@@ -82,13 +95,17 @@ public class Core {
         int maxNum = -1;
         for (IO1.VFile f : files) {
             String name = f.GetName(ctx);
-            if (name == null || name.length() < 2) continue;
+            if (name == null || name.length() < 2)
+                continue;
             int dot = name.lastIndexOf('.');
-            if (dot <= 1) continue;
+            if (dot <= 1)
+                continue;
             try {
                 int num = Integer.parseInt(name.substring(1, dot));
-                if (num > maxNum) maxNum = num;
-            } catch (NumberFormatException e) { /* skip */ }
+                if (num > maxNum)
+                    maxNum = num;
+            } catch (NumberFormatException e) {
+                /* skip */ }
         }
         return maxNum + 1;
     }
@@ -106,7 +123,8 @@ public class Core {
             try (InputStream is = src.OpenReader(ctx)) {
                 bmp = BitmapFactory.decodeStream(is);
             }
-            if (bmp == null) return null;
+            if (bmp == null)
+                return null;
 
             // Resolve output format
             Bitmap.CompressFormat fmt;
@@ -115,23 +133,31 @@ public class Core {
 
             switch (mode) {
                 case "jpg":
-                    fmt = Bitmap.CompressFormat.JPEG; ext = "jpg"; qual = 90;
+                    fmt = Bitmap.CompressFormat.JPEG;
+                    ext = "jpg";
+                    qual = 90;
                     break;
                 case "png":
-                    fmt = Bitmap.CompressFormat.PNG; ext = "png"; qual = 100;
+                    fmt = Bitmap.CompressFormat.PNG;
+                    ext = "png";
+                    qual = 100;
                     break;
                 case "webp":
-                    fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSY;
+                    ext = "webp";
+                    qual = 80;
                     break;
                 case "webp_lossless":
-                    fmt = Bitmap.CompressFormat.WEBP_LOSSLESS; ext = "webp"; qual = 100;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSLESS;
+                    ext = "webp";
+                    qual = 100;
                     break;
                 case "webp_half":
-                    fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
+                    fmt = Bitmap.CompressFormat.WEBP_LOSSY;
+                    ext = "webp";
+                    qual = 80;
                     // Scale to half resolution
-                    Bitmap half = Bitmap.createScaledBitmap(bmp,
-                            Math.max(1, bmp.getWidth() / 2),
-                            Math.max(1, bmp.getHeight() / 2), true);
+                    Bitmap half = Bitmap.createScaledBitmap(bmp, Math.max(1, bmp.getWidth() / 2), Math.max(1, bmp.getHeight() / 2), true);
                     bmp.recycle();
                     bmp = half;
                     break;
@@ -139,11 +165,17 @@ public class Core {
                     // Re-encode in original format
                     String srcLow = src.GetName(ctx).toLowerCase();
                     if (srcLow.endsWith(".png")) {
-                        fmt = Bitmap.CompressFormat.PNG; ext = "png"; qual = 100;
+                        fmt = Bitmap.CompressFormat.PNG;
+                        ext = "png";
+                        qual = 100;
                     } else if (srcLow.endsWith(".webp")) {
-                        fmt = Bitmap.CompressFormat.WEBP_LOSSY; ext = "webp"; qual = 80;
+                        fmt = Bitmap.CompressFormat.WEBP_LOSSY;
+                        ext = "webp";
+                        qual = 80;
                     } else {
-                        fmt = Bitmap.CompressFormat.JPEG; ext = "jpg"; qual = 90;
+                        fmt = Bitmap.CompressFormat.JPEG;
+                        ext = "jpg";
+                        qual = 90;
                     }
                     break;
             }
@@ -166,20 +198,31 @@ public class Core {
     // Resolve MIME type from extension.
     public static String mimeType(String ext) {
         switch (ext.toLowerCase()) {
-            case "jpg": case "jpeg": return "image/jpeg";
-            case "png": return "image/png";
-            case "webp": return "image/webp";
-            default: return "application/octet-stream";
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "webp":
+                return "image/webp";
+            default:
+                return "application/octet-stream";
         }
     }
 
     // Resolve file extension from conversion mode.
     public static String modeToExt(String mode) {
         switch (mode) {
-            case "jpg": return "jpg";
-            case "png": return "png";
-            case "webp": case "webp_lossless": case "webp_half": return "webp";
-            default: return null;
+            case "jpg":
+                return "jpg";
+            case "png":
+                return "png";
+            case "webp":
+            case "webp_lossless":
+            case "webp_half":
+                return "webp";
+            default:
+                return null;
         }
     }
 
@@ -188,12 +231,12 @@ public class Core {
         ContentValues cv = new ContentValues();
         String mime = "application/octet-stream";
         int dot = name.lastIndexOf('.');
-        if (dot > 0) mime = mimeType(name.substring(dot + 1).toLowerCase());
+        if (dot > 0)
+            mime = mimeType(name.substring(dot + 1).toLowerCase());
 
         cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
         cv.put(MediaStore.Downloads.MIME_TYPE, mime);
-        cv.put(MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS + "/" + OUT_DIR);
+        cv.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + OUT_DIR);
 
         Uri col = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
         Uri uri = ctx.getContentResolver().insert(col, cv);
@@ -204,14 +247,16 @@ public class Core {
     public static boolean exportZip(Context ctx, int slot, ProgressCB cb) {
         IO1.VFile dir = getStoreDir(ctx, slot);
         List<IO1.VFile> files = dir.ListDir(ctx);
-        if (files.isEmpty()) return false;
+        if (files.isEmpty())
+            return false;
 
         String zipName = SLOT_TAG[slot] + ".zip";
         IO1.VFile zipFile = makeOutFile(ctx, zipName);
-        if (zipFile == null) return false;
+        if (zipFile == null)
+            return false;
 
         try (OutputStream os = zipFile.OpenWriter(ctx, false);
-             ZipOutputStream zos = new ZipOutputStream(os)) {
+                ZipOutputStream zos = new ZipOutputStream(os)) {
 
             byte[] buf = new byte[8192];
             int cur = 0;
@@ -221,11 +266,13 @@ public class Core {
                 zos.putNextEntry(new ZipEntry(name));
                 try (InputStream is = f.OpenReader(ctx)) {
                     int len;
-                    while ((len = is.read(buf)) > 0) zos.write(buf, 0, len);
+                    while ((len = is.read(buf)) > 0)
+                        zos.write(buf, 0, len);
                 }
                 zos.closeEntry();
                 cur++;
-                if (cb != null) cb.onProgress(cur, files.size());
+                if (cb != null)
+                    cb.onProgress(cur, files.size());
             }
             return true;
         } catch (IOException e) {
@@ -242,13 +289,16 @@ public class Core {
             IO1.VFile out = makeOutFile(ctx, outName);
             if (out != null) {
                 try (OutputStream os = out.OpenWriter(ctx, false)) {
-                    if (convImage(ctx, src, mode, os) != null) ok++;
-                    else out.Delete(ctx);
+                    if (convImage(ctx, src, mode, os) != null)
+                        ok++;
+                    else
+                        out.Delete(ctx);
                 } catch (IOException e) {
                     out.Delete(ctx);
                 }
             }
-            if (cb != null) cb.onProgress(i + 1, srcs.size());
+            if (cb != null)
+                cb.onProgress(i + 1, srcs.size());
         }
         return ok;
     }
@@ -257,7 +307,8 @@ public class Core {
     public static int convStorage(Context ctx, int slot, String mode, ProgressCB cb) {
         IO1.VFile dir = getStoreDir(ctx, slot);
         List<IO1.VFile> files = dir.ListDir(ctx);
-        if (files.isEmpty()) return 0;
+        if (files.isEmpty())
+            return 0;
 
         String newExt = modeToExt(mode);
         int ok = 0;
@@ -278,7 +329,8 @@ public class Core {
             IO1.VFile tmp = null;
             try {
                 tmp = dir.CreateFile(ctx, mimeType(ext), tmpName);
-                if (tmp == null) continue;
+                if (tmp == null)
+                    continue;
 
                 try (OutputStream os = tmp.OpenWriter(ctx, false)) {
                     if (convImage(ctx, src, mode, os) != null) {
@@ -292,13 +344,16 @@ public class Core {
                         ok++;
                     }
                 }
-            } catch (IOException e) { /* skip */ }
-            finally {
+            } catch (IOException e) {
+                showErr(ctx, "ERR convert: " + e.getMessage());
+            } finally {
                 // Cleanup leftover temp file
-                if (tmp != null) tmp.Delete(ctx);
+                if (tmp != null)
+                    tmp.Delete(ctx);
             }
 
-            if (cb != null) cb.onProgress(i + 1, files.size());
+            if (cb != null)
+                cb.onProgress(i + 1, files.size());
         }
         return ok;
     }
@@ -307,7 +362,8 @@ public class Core {
     private static String convFileName(Context ctx, IO1.VFile src, String mode) {
         String name = src.GetName(ctx);
         String ext = modeToExt(mode);
-        if (ext == null) return name;
+        if (ext == null)
+            return name;
         int dot = name.lastIndexOf('.');
         String base = (dot > 0) ? name.substring(0, dot) : name;
         return base + "." + ext;
@@ -316,7 +372,8 @@ public class Core {
     // Delete all files in a storage slot.
     public static void resetStore(Context ctx, int slot) {
         IO1.VFile dir = getStoreDir(ctx, slot);
-        for (IO1.VFile f : dir.ListDir(ctx)) f.Delete(ctx);
+        for (IO1.VFile f : dir.ListDir(ctx))
+            f.Delete(ctx);
     }
 
     public interface ProgressCB {

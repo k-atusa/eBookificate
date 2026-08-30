@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConvertActivity extends AppCompatActivity {
-
     private final List<IO1.VFile> selFiles = new ArrayList<>();
     private TextView txtSelect;
     private TextView txtStatus;
@@ -37,8 +36,8 @@ public class ConvertActivity extends AppCompatActivity {
             });
 
     private final ActivityResultLauncher<String> notifPerm = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(), ok -> {
-            });
+            new ActivityResultContracts.RequestPermission(), ok -> { }
+    );
 
     @Override
     protected void onCreate(Bundle saved) {

@@ -31,7 +31,6 @@ import java.util.concurrent.Executors;
 
 // CameraX continuous capture for book scanning.
 public class CameraActivity extends AppCompatActivity {
-
     private static final String TAG = "Camera";
 
     private int slot;
@@ -54,8 +53,7 @@ public class CameraActivity extends AppCompatActivity {
         findViewById(R.id.btnCapture).setOnClickListener(v -> takePhoto());
 
         // Start camera if permission granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             initCamera();
         } else {
             Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
@@ -65,8 +63,7 @@ public class CameraActivity extends AppCompatActivity {
 
     // Bind CameraX preview and capture use cases.
     private void initCamera() {
-        ListenableFuture<ProcessCameraProvider> fut =
-                ProcessCameraProvider.getInstance(this);
+        ListenableFuture<ProcessCameraProvider> fut = ProcessCameraProvider.getInstance(this);
 
         fut.addListener(() -> {
             try {
@@ -75,17 +72,13 @@ public class CameraActivity extends AppCompatActivity {
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(pv.getSurfaceProvider());
 
-                capture = new ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build();
+                capture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build();
 
                 prov.unbindAll();
-                prov.bindToLifecycle(this,
-                        CameraSelector.DEFAULT_BACK_CAMERA, preview, capture);
+                prov.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture);
             } catch (Exception e) {
                 Log.e(TAG, "initCamera: " + e.getMessage(), e);
-                Toast.makeText(this,
-                        "ERR: camera init: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "ERR: camera init: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -98,7 +91,7 @@ public class CameraActivity extends AppCompatActivity {
         capture.takePicture(camWork, new ImageCapture.OnImageCapturedCallback() {
             @Override
             public void onCaptureSuccess(@NonNull ImageProxy img) {
-                try {
+                try (img) {
                     saveImage(img);
                     snapCount++;
                     runOnUiThread(() -> {
@@ -114,12 +107,9 @@ public class CameraActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     Log.e(TAG, "saveImage: " + e.getMessage(), e);
                     runOnUiThread(() -> {
-                        Toast.makeText(CameraActivity.this,
-                                "ERR: save: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(CameraActivity.this, "ERR save: " + e.getMessage(), Toast.LENGTH_LONG).show();
                         taking = false;
                     });
-                } finally {
-                    img.close();
                 }
             }
 
@@ -127,8 +117,7 @@ public class CameraActivity extends AppCompatActivity {
             public void onError(@NonNull ImageCaptureException ex) {
                 Log.e(TAG, "capture: " + ex.getMessage(), ex);
                 runOnUiThread(() -> {
-                    Toast.makeText(CameraActivity.this,
-                            "ERR: capture: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(CameraActivity.this, "ERR capture: " + ex.getMessage(), Toast.LENGTH_LONG).show();
                     taking = false;
                 });
             }

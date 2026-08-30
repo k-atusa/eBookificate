@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -24,10 +25,14 @@
         android:background="#44000000"
         android:layout_gravity="top">
 
-        <ImageView style="@style/icon" android:id="@+id/btnBack"
-            android:src="@drawable/ic_arrow_back" android:contentDescription="Back"
-            android:tint="#FFFFFF"
-            android:clickable="true" android:focusable="true" />
+        <ImageView
+            style="@style/icon"
+            android:id="@+id/btnBack"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="Back"
+            android:clickable="true"
+            android:focusable="true"
+            app:tint="#FFFFFF" />
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
         <TextView
             android:id="@+id/txtCount"

@@ -10,7 +10,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
-
     private static final int[] CARD_ID = {
             R.id.cardStorage0, R.id.cardStorage1, R.id.cardStorage2,
             R.id.cardStorage3, R.id.cardStorage4

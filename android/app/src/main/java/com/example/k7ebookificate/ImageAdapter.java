@@ -20,7 +20,6 @@ import java.util.concurrent.Executors;
 
 // Grid adapter for image thumbnails with click/long-click callbacks.
 public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
-
     public interface OnClick { void onItemClick(int pos, IO1.VFile file); }
     public interface OnLong  { void onItemLongClick(int pos, IO1.VFile file); }
 
@@ -32,13 +31,11 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
     private int colWidth = 0;
 
     public ImageAdapter(Context ctx) { this.ctx = ctx; }
-
     public void setItems(List<IO1.VFile> list) {
         items.clear();
         items.addAll(list);
         notifyDataSetChanged();
     }
-
     public void setOnItemClickListener(OnClick cb) { this.tapCB = cb; }
     public void setOnItemLongClickListener(OnLong cb) { this.holdCB = cb; }
 
@@ -90,8 +87,8 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
         final int idx = pos;
         thumbWork.submit(() -> {
             try {
-                Bitmap thumb = decodThumb(file, 256);
-                if (thumb != null && h.getAdapterPosition() == idx) {
+                Bitmap thumb = decodeThumb(file, 256);
+                if (thumb != null && h.getBindingAdapterPosition() == idx) {
                     h.imgThumb.post(() -> {
                         h.imgThumb.setImageBitmap(thumb);
                         h.imgThumb.setBackgroundColor(0);
@@ -102,12 +99,18 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
 
         // Tap to view
         h.itemView.setOnClickListener(v -> {
-            if (tapCB != null) tapCB.onItemClick(h.getAdapterPosition(), file);
+            int bindingPos = h.getBindingAdapterPosition();
+            if (tapCB != null && bindingPos != RecyclerView.NO_POSITION) {
+                tapCB.onItemClick(bindingPos, items.get(bindingPos));
+            }
         });
 
         // Hold to delete
         h.itemView.setOnLongClickListener(v -> {
-            if (holdCB != null) holdCB.onItemLongClick(h.getAdapterPosition(), file);
+            int bindingPos = h.getBindingAdapterPosition();
+            if (holdCB != null && bindingPos != RecyclerView.NO_POSITION) {
+                holdCB.onItemLongClick(bindingPos, items.get(bindingPos));
+            }
             return true;
         });
     }
@@ -115,7 +118,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
     @Override public int getItemCount() { return items.size(); }
 
     // Decode thumbnail with inSampleSize for memory efficiency.
-    private Bitmap decodThumb(IO1.VFile file, int maxSize) {
+    private Bitmap decodeThumb(IO1.VFile file, int maxSize) {
         try {
             BitmapFactory.Options opt = new BitmapFactory.Options();
             opt.inJustDecodeBounds = true;
