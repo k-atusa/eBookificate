@@ -18,14 +18,25 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="32dp" />
 
-        <!-- Convert Mode -->
+        <!-- Edit Functions -->
         <View android:layout_width="match_parent" android:layout_height="40dp" />
+        <LinearLayout style="@style/hbox">
             <Button style="@style/btnPri"
                 android:id="@+id/btnConvert"
-                android:text="Convert Image"
-                android:layout_width="match_parent"
+                android:text="Edit Image"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="56dp"
                 android:textSize="18sp" />
+            <View android:layout_width="8dp" android:layout_height="0dp" />
+            <Button style="@style/btnPri"
+                android:id="@+id/btnTextEdit"
+                android:text="Edit Text"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:textSize="18sp" />
+        </LinearLayout>
         <View android:layout_width="match_parent" android:layout_height="32dp" />
 
         <!-- Storage View -->

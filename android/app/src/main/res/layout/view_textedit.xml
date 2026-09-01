@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/vbox"
+    android:layout_height="match_parent"
+    android:paddingTop="48dp"
+    android:paddingBottom="64dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:background="?attr/colorSurface">
+
+    <!-- control pannel -->
+    <LinearLayout style="@style/hbox"
+        android:padding="8dp"
+        android:gravity="center_vertical">
+
+        <ImageView style="@style/icon" android:id="@+id/btnBack"
+            android:src="@drawable/ic_arrow_back" android:contentDescription="Back"
+            android:clickable="true" android:focusable="true" />
+
+        <EditText android:id="@+id/editFileName"
+            android:hint="filename.txt"
+            android:layout_height="wrap_content"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:maxLines="1" android:inputType="text"
+            android:layout_marginStart="8dp" android:layout_marginEnd="8dp" />
+
+        <ImageView style="@style/icon" android:id="@+id/btnLoad"
+            android:src="@drawable/ic_convert" android:contentDescription="Load"
+            android:clickable="true" android:focusable="true" />
+
+        <ImageView style="@style/icon" android:id="@+id/btnSave"
+            android:src="@drawable/ic_export" android:contentDescription="Save"
+            android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+
+    <!-- text editor body -->
+    <EditText android:id="@+id/editBody"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="top|start"
+        android:inputType="textMultiLine"
+        android:scrollbars="vertical"
+        android:padding="12dp"
+        android:textColor="?attr/colorOnSurface"
+        android:background="?attr/colorSurfaceVariant"
+        android:hint="Enter or load text..." />
+
+</LinearLayout>

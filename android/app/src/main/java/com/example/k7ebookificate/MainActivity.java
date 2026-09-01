@@ -29,11 +29,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.view_main);
 
         // Init storage directories
-        for (int i = 0; i < 5; i++) Core.getStoreDir(this, i);
+        for (int i = 0; i < 5; i++)
+            Core.getStoreDir(this, i);
 
-        // Convert button
-        findViewById(R.id.btnConvert).setOnClickListener(v ->
-                startActivity(new Intent(this, ConvertActivity.class)));
+        // Image Edit button
+        findViewById(R.id.btnConvert).setOnClickListener(v -> startActivity(new Intent(this, ConvertActivity.class)));
+
+        // Text Edit button
+        findViewById(R.id.btnTextEdit).setOnClickListener(v -> startActivity(new Intent(this, TextEditActivity.class)));
 
         // Storage card click and edit button
         for (int i = 0; i < 5; i++) {

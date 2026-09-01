@@ -28,10 +28,16 @@
             </intent-filter>
         </activity>
 
-        <!-- Convert Activity -->
+        <!-- Image Convert Activity -->
         <activity
             android:name=".ConvertActivity"
             android:exported="false" />
+
+        <!-- Text Edit Activity -->
+        <activity
+            android:name=".TextEditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Storage Activity -->
         <activity
