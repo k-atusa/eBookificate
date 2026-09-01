@@ -135,7 +135,7 @@ public class Core {
                 case "jpg":
                     fmt = Bitmap.CompressFormat.JPEG;
                     ext = "jpg";
-                    qual = 90;
+                    qual = 95;
                     break;
                 case "png":
                     fmt = Bitmap.CompressFormat.PNG;
@@ -145,7 +145,7 @@ public class Core {
                 case "webp":
                     fmt = Bitmap.CompressFormat.WEBP_LOSSY;
                     ext = "webp";
-                    qual = 80;
+                    qual = 90;
                     break;
                 case "webp_lossless":
                     fmt = Bitmap.CompressFormat.WEBP_LOSSLESS;
@@ -155,7 +155,7 @@ public class Core {
                 case "webp_half":
                     fmt = Bitmap.CompressFormat.WEBP_LOSSY;
                     ext = "webp";
-                    qual = 80;
+                    qual = 90;
                     // Scale to half resolution
                     Bitmap half = Bitmap.createScaledBitmap(bmp, Math.max(1, bmp.getWidth() / 2), Math.max(1, bmp.getHeight() / 2), true);
                     bmp.recycle();
@@ -171,11 +171,11 @@ public class Core {
                     } else if (srcLow.endsWith(".webp")) {
                         fmt = Bitmap.CompressFormat.WEBP_LOSSY;
                         ext = "webp";
-                        qual = 80;
+                        qual = 90;
                     } else {
                         fmt = Bitmap.CompressFormat.JPEG;
                         ext = "jpg";
-                        qual = 90;
+                        qual = 95;
                     }
                     break;
             }

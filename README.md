@@ -12,8 +12,12 @@
 
 ## PostProcessing Usage
 
-- `crop()`: Auto-detects document edges and applies perspective warp to produce a flat, rectangular crop.
-- `resize()`, `rotate()`: Percentage-based downscale and rotation with re-encoding to high-compression WebP, JPEG, or PNG.
+- `cropColor()`: Detects document edges via luminance-equalized Lab color difference; saves intermediate detection mask as `mask_*`.
+- `cropBorder()`: Detects document edges using GrabCut or Canny fallback (background-color-agnostic); saves intermediate detection mask as `mask_*`.
+- `cropSize()`: Crops a fixed pixel region of given width × height centered on the image, with no edge detection.
+- `rotate()`: Rotates all images by a given angle (counter-clockwise) and saves them.
+- `resize()`: Scales images by a percentage and re-encodes them at a specified quality.
+- `sharpen()`: Adjusts contrast and sharpness of images (positive values strengthen, negative values soften).
 - `mkpdf()`: Merges all processed images into a single optimized PDF file.
 
 ## Build Executable

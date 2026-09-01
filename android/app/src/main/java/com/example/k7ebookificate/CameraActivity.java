@@ -6,6 +6,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.widget.TextView;
@@ -13,11 +15,16 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
+import androidx.camera.core.MeteringPoint;
+import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
+import androidx.camera.core.ZoomState;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
@@ -35,8 +42,10 @@ public class CameraActivity extends AppCompatActivity {
 
     private int slot;
     private int snapCount = 0;
+    private Camera camera;
     private ImageCapture capture;
     private ExecutorService camWork;
+    private ScaleGestureDetector scaleDetector;
     private TextView txtCount;
     private boolean taking = false;
 
@@ -72,15 +81,50 @@ public class CameraActivity extends AppCompatActivity {
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(pv.getSurfaceProvider());
 
-                capture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build();
+                capture = new ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                        .setJpegQuality(95)
+                        .build();
 
                 prov.unbindAll();
-                prov.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture);
+                camera = prov.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture);
+
+                setupTouchControls(pv);
             } catch (Exception e) {
                 Log.e(TAG, "initCamera: " + e.getMessage(), e);
                 Toast.makeText(this, "ERR: camera init: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
+    }
+
+    // Setup touch-to-focus and pinch-to-zoom on the preview.
+    private void setupTouchControls(PreviewView pv) {
+        // Pinch-to-zoom
+        scaleDetector = new ScaleGestureDetector(this,
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        if (camera == null) return true;
+                        ZoomState zoomState = camera.getCameraInfo().getZoomState().getValue();
+                        float currentZoom = zoomState != null ? zoomState.getZoomRatio() : 1f;
+                        float newZoom = currentZoom * detector.getScaleFactor();
+                        camera.getCameraControl().setZoomRatio(newZoom);
+                        return true;
+                    }
+                });
+
+        // Touch-to-focus + pinch-to-zoom combined listener
+        pv.setOnTouchListener((v, event) -> {
+            scaleDetector.onTouchEvent(event);
+            if (event.getAction() == MotionEvent.ACTION_UP && !scaleDetector.isInProgress()) {
+                MeteringPointFactory factory = pv.getMeteringPointFactory();
+                MeteringPoint point = factory.createPoint(event.getX(), event.getY());
+                FocusMeteringAction action = new FocusMeteringAction.Builder(point).build();
+                camera.getCameraControl().startFocusAndMetering(action);
+                v.performClick();
+            }
+            return true;
+        });
     }
 
     // Capture a single photo and save to storage.
@@ -141,7 +185,7 @@ public class CameraActivity extends AppCompatActivity {
         if (out == null) throw new Exception("createFile failed: " + name);
 
         try (OutputStream os = out.OpenWriter(this, false)) {
-            bmp.compress(Bitmap.CompressFormat.JPEG, 90, os);
+            bmp.compress(Bitmap.CompressFormat.JPEG, 95, os);
         }
         bmp.recycle();
     }
