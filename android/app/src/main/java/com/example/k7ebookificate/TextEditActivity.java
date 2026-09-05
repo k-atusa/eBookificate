@@ -47,8 +47,7 @@ public class TextEditActivity extends AppCompatActivity {
             // Check size limit
             long size = vf.GetSize(this);
             if (size > TEXT_MAX) {
-                Toast.makeText(this,
-                        "ERR open: file too large", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "ERR open: file too large", Toast.LENGTH_SHORT).show();
                 return;
             }
 

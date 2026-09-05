@@ -38,6 +38,7 @@ android {
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.documentfile)
+    implementation(libs.exifinterface)
     implementation(libs.material)
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)

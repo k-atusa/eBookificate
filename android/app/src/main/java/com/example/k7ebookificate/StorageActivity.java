@@ -37,8 +37,7 @@ public class StorageActivity extends AppCompatActivity {
     private boolean busy = false;
 
     // Camera result refreshes file list.
-    private final ActivityResultLauncher<Intent> camLaunch =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> reloadFiles());
+    private final ActivityResultLauncher<Intent> camLaunch = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> reloadFiles());
 
     private final ActivityResultLauncher<String> camPerm =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {
@@ -157,8 +156,7 @@ public class StorageActivity extends AppCompatActivity {
     private void showPage() {
         int from = curPage * Core.PAGE_SIZE;
         int to = Math.min(from + Core.PAGE_SIZE, allFiles.size());
-        List<IO1.VFile> page = (from < allFiles.size())
-                ? allFiles.subList(from, to) : new ArrayList<>();
+        List<IO1.VFile> page = (from < allFiles.size()) ? allFiles.subList(from, to) : new ArrayList<>();
         adapter.setItems(page);
         txtPage.setText((curPage + 1) + " / " + maxPage);
         btnPrev.setEnabled(curPage > 0);
@@ -277,9 +275,7 @@ public class StorageActivity extends AppCompatActivity {
 
         try {
             int rot = Core.exifRotation(this, file);
-            int maxDim = Math.max(
-                    getResources().getDisplayMetrics().widthPixels,
-                    getResources().getDisplayMetrics().heightPixels);
+            int maxDim = Math.max(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels);
 
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inJustDecodeBounds = true;

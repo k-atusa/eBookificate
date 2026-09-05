@@ -29,12 +29,10 @@ public class ConvertService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Start foreground immediately
         startForeground(NOTIF_ID, buildNotif("Preparing..."), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-
         if (intent == null || intent.getAction() == null) {
             stopSelf();
             return START_NOT_STICKY;
         }
-
         String action = intent.getAction();
         Bundle extras = intent.getExtras();
 

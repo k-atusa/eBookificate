@@ -5,7 +5,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
-import android.media.ExifInterface;
+import androidx.exifinterface.media.ExifInterface;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -21,8 +21,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -61,8 +59,7 @@ public class Core {
         if (!conf.exists())
             return names;
 
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(new java.io.FileInputStream(conf)))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new java.io.FileInputStream(conf)))) {
             for (int i = 0; i < 5; i++) {
                 String line = br.readLine();
                 if (line != null && !line.trim().isEmpty()) {
@@ -106,8 +103,7 @@ public class Core {
                 int num = Integer.parseInt(name.substring(1, dot));
                 if (num > maxNum)
                     maxNum = num;
-            } catch (NumberFormatException e) {
-                /* skip */ }
+            } catch (NumberFormatException ignored) { }
         }
         return maxNum + 1;
     }
@@ -120,9 +116,8 @@ public class Core {
     // Read EXIF orientation as rotation degrees (0, 90, 180, 270).
     public static int exifRotation(Context ctx, IO1.VFile file) {
         try (InputStream is = file.OpenReader(ctx)) {
-            int o = new ExifInterface(is).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-            if (o == ExifInterface.ORIENTATION_ROTATE_90)  return 90;
+            int o = new ExifInterface(is).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            if (o == ExifInterface.ORIENTATION_ROTATE_90) return 90;
             if (o == ExifInterface.ORIENTATION_ROTATE_180) return 180;
             if (o == ExifInterface.ORIENTATION_ROTATE_270) return 270;
         } catch (Exception ignored) { }
@@ -145,7 +140,6 @@ public class Core {
             Bitmap bmp;
             try (InputStream is = src.OpenReader(ctx)) { bmp = BitmapFactory.decodeStream(is); }
             if (bmp == null) return null;
-
             bmp = applyRotation(bmp, exifRotation(ctx, src));
 
             // Resolve output format
@@ -220,8 +214,7 @@ public class Core {
     // Resolve MIME type from extension.
     public static String mimeType(String ext) {
         switch (ext.toLowerCase()) {
-            case "jpg":
-            case "jpeg":
+            case "jpg": case "jpeg":
                 return "image/jpeg";
             case "png":
                 return "image/png";
@@ -239,9 +232,7 @@ public class Core {
                 return "jpg";
             case "png":
                 return "png";
-            case "webp":
-            case "webp_lossless":
-            case "webp_half":
+            case "webp": case "webp_lossless": case "webp_half":
                 return "webp";
             default:
                 return null;
@@ -277,9 +268,7 @@ public class Core {
         if (zipFile == null)
             return false;
 
-        try (OutputStream os = zipFile.OpenWriter(ctx, false);
-                ZipOutputStream zos = new ZipOutputStream(os)) {
-
+        try (OutputStream os = zipFile.OpenWriter(ctx, false); ZipOutputStream zos = new ZipOutputStream(os)) {
             byte[] buf = new byte[8192];
             int cur = 0;
 
@@ -331,7 +320,6 @@ public class Core {
         List<IO1.VFile> files = dir.ListDir(ctx);
         if (files.isEmpty())
             return 0;
-
         String newExt = modeToExt(mode);
         int ok = 0;
 
