@@ -2,8 +2,6 @@ package com.example.k7ebookificate;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -17,6 +15,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.resolutionselector.AspectRatioStrategy;
+import androidx.camera.core.resolutionselector.ResolutionSelector;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -78,10 +79,17 @@ public class CameraActivity extends AppCompatActivity {
             try {
                 ProcessCameraProvider prov = fut.get();
                 PreviewView pv = findViewById(R.id.previewView);
-                Preview preview = new Preview.Builder().build();
+                ResolutionSelector resSel = new ResolutionSelector.Builder()
+                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                        .build();
+
+                Preview preview = new Preview.Builder()
+                        .setResolutionSelector(resSel)
+                        .build();
                 preview.setSurfaceProvider(pv.getSurfaceProvider());
 
                 capture = new ImageCapture.Builder()
+                        .setResolutionSelector(resSel)
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                         .setJpegQuality(95)
                         .build();
@@ -168,26 +176,57 @@ public class CameraActivity extends AppCompatActivity {
         });
     }
 
-    // Decode ImageProxy and write JPEG to storage slot.
+    // Build minimal EXIF APP1 with only Orientation tag (36 bytes).
+    private byte[] makeMinimalExif(int orientation) {
+        byte[] app1 = new byte[36];
+        ByteBuffer bb = ByteBuffer.wrap(app1).order(ByteOrder.BIG_ENDIAN);
+        bb.put((byte) 0xFF); bb.put((byte) 0xE1); // APP1 marker
+        bb.putShort((short) 34);                   // segment length
+        bb.put((byte)'E'); bb.put((byte)'x'); bb.put((byte)'i'); bb.put((byte)'f');
+        bb.put((byte) 0); bb.put((byte) 0);
+        bb.put((byte)'M'); bb.put((byte)'M');       // TIFF BE
+        bb.putShort((short) 0x002A); bb.putInt(8);  // magic + IFD offset
+        bb.putShort((short) 1);                     // 1 entry
+        bb.putShort((short) 0x0112);                // Orientation tag
+        bb.putShort((short) 3); bb.putInt(1);       // type SHORT, count 1
+        bb.putShort((short) orientation);            // value
+        bb.putShort((short) 0); bb.putInt(0);       // padding + next IFD
+        return app1;
+    }
+
+    // Save camera JPEG with only orientation EXIF, stripping all other metadata.
     private void saveImage(ImageProxy img) throws Exception {
         ByteBuffer buf = img.getPlanes()[0].getBuffer();
         byte[] data = new byte[buf.remaining()];
         buf.get(data);
-        Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
-        if (bmp == null) throw new Exception("decode failed");
+
+        int deg = img.getImageInfo().getRotationDegrees();
+        int orient = deg == 90 ? 6 : deg == 180 ? 3 : deg == 270 ? 8 : 1;
 
         IO1.VFile dir = Core.getStoreDir(this, slot);
-        int num = Core.nextFileNum(this, dir);
-        String tag = Core.getSlotTag(slot);
-        String name = Core.fmtFileName(tag, num, "jpg");
-
+        String name = Core.fmtFileName(Core.getSlotTag(slot), Core.nextFileNum(this, dir), "jpg");
         IO1.VFile out = dir.CreateFile(this, "image/jpeg", name);
         if (out == null) throw new Exception("createFile failed: " + name);
 
         try (OutputStream os = out.OpenWriter(this, false)) {
-            bmp.compress(Bitmap.CompressFormat.JPEG, 95, os);
+            if (data.length < 4 || (data[0] & 0xFF) != 0xFF || (data[1] & 0xFF) != 0xD8) {
+                os.write(data); return;
+            }
+            os.write(0xFF); os.write(0xD8);           // SOI
+            os.write(makeMinimalExif(orient));         // minimal EXIF
+
+            // skip existing metadata (APP0-APP15, COM)
+            int pos = 2;
+            while (pos + 3 < data.length) {
+                if ((data[pos] & 0xFF) != 0xFF) break;
+                int m = data[pos + 1] & 0xFF;
+                if (m == 0xD9 || m == 0xDA) break;
+                int len = ((data[pos + 2] & 0xFF) << 8) | (data[pos + 3] & 0xFF);
+                if ((m >= 0xE0 && m <= 0xEF) || m == 0xFE) pos += 2 + len;
+                else break;
+            }
+            if (pos < data.length) os.write(data, pos, data.length - pos);
         }
-        bmp.recycle();
     }
 
     @Override

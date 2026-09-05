@@ -146,7 +146,7 @@ def buildMaskBorder(img):
     edges = cv2.dilate(edges, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)), iterations=2)
     return edges, scale
 
-# Save mask image alongside result (prefix mask_)
+# Save mask image alongside result
 def saveMask(mask, outDir, basename):
     maskPath = os.path.join(outDir, "mask_" + os.path.splitext(basename)[0] + ".png")
     cv2.imwrite(maskPath, mask)

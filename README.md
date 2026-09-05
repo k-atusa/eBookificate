@@ -1,4 +1,4 @@
-# eBookificate v1.0.0
+# eBookificate v1.0.1
 
 > Framework for easily creating eBooks/PDFs from compact, high-compression image scans.
 
@@ -14,7 +14,7 @@
 
 - `cropColor()`: Detects document edges via luminance-equalized Lab color difference; saves intermediate detection mask as `mask_*`.
 - `cropBorder()`: Detects document edges using GrabCut or Canny fallback (background-color-agnostic); saves intermediate detection mask as `mask_*`.
-- `cropSize()`: Crops a fixed pixel region of given width × height centered on the image, with no edge detection.
+- `cropSize()`: Crops a fixed pixel region of given width-height centered on the image, with no edge detection.
 - `rotate()`: Rotates all images by a given angle (counter-clockwise) and saves them.
 - `resize()`: Scales images by a percentage and re-encodes them at a specified quality.
 - `sharpen()`: Adjusts contrast and sharpness of images (positive values strengthen, negative values soften).

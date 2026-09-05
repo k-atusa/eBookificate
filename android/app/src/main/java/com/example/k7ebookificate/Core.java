@@ -4,6 +4,8 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -115,16 +117,36 @@ public class Core {
         return String.format("%s%05d.%s", tag, num, ext);
     }
 
-    // Convert image by decoding and re-encoding (strips metadata).
+    // Read EXIF orientation as rotation degrees (0, 90, 180, 270).
+    public static int exifRotation(Context ctx, IO1.VFile file) {
+        try (InputStream is = file.OpenReader(ctx)) {
+            int o = new ExifInterface(is).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            if (o == ExifInterface.ORIENTATION_ROTATE_90)  return 90;
+            if (o == ExifInterface.ORIENTATION_ROTATE_180) return 180;
+            if (o == ExifInterface.ORIENTATION_ROTATE_270) return 270;
+        } catch (Exception ignored) { }
+        return 0;
+    }
+
+    // Rotate bitmap by degrees; returns original if degrees == 0.
+    public static Bitmap applyRotation(Bitmap bmp, int degrees) {
+        if (degrees == 0 || bmp == null) return bmp;
+        Matrix m = new Matrix();
+        m.postRotate(degrees);
+        Bitmap rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), m, true);
+        bmp.recycle();
+        return rotated;
+    }
+
+    // Decode, apply EXIF rotation, re-encode (strips all metadata).
     public static String convImage(Context ctx, IO1.VFile src, String mode, OutputStream dest) {
         try {
-            // Decode source bitmap
             Bitmap bmp;
-            try (InputStream is = src.OpenReader(ctx)) {
-                bmp = BitmapFactory.decodeStream(is);
-            }
-            if (bmp == null)
-                return null;
+            try (InputStream is = src.OpenReader(ctx)) { bmp = BitmapFactory.decodeStream(is); }
+            if (bmp == null) return null;
+
+            bmp = applyRotation(bmp, exifRotation(ctx, src));
 
             // Resolve output format
             Bitmap.CompressFormat fmt;

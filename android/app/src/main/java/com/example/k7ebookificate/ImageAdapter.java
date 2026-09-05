@@ -25,7 +25,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
 
     private final Context ctx;
     private final List<IO1.VFile> items = new ArrayList<>();
-    private final ExecutorService thumbWork = Executors.newFixedThreadPool(3);
+    private final ExecutorService thumbWork = Executors.newFixedThreadPool(6);
     private OnClick tapCB;
     private OnLong holdCB;
     private int colWidth = 0;
@@ -45,11 +45,13 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
         super.onAttachedToRecyclerView(rv);
         rv.post(() -> {
             int inner = rv.getWidth() - rv.getPaddingLeft() - rv.getPaddingRight();
-            if (inner > 0) colWidth = inner / 3;
+            if (inner > 0)
+                colWidth = inner / 3;
         });
     }
 
-    @NonNull @Override
+    @NonNull
+    @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int type) {
         View v = LayoutInflater.from(ctx).inflate(R.layout.item_image, parent, false);
         return new VH(v);
@@ -66,7 +68,10 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
             int pad = h.itemView.getPaddingLeft() + h.itemView.getPaddingRight();
             int size = colWidth - pad;
             ViewGroup.LayoutParams lp = h.imgThumb.getLayoutParams();
-            if (lp.height != size) { lp.height = size; h.imgThumb.setLayoutParams(lp); }
+            if (lp.height != size) {
+                lp.height = size;
+                h.imgThumb.setLayoutParams(lp);
+            }
         } else {
             h.itemView.post(() -> {
                 int w = h.itemView.getWidth();
@@ -74,7 +79,10 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
                 int size = w - pad;
                 if (size > 0) {
                     ViewGroup.LayoutParams lp = h.imgThumb.getLayoutParams();
-                    if (lp.height != size) { lp.height = size; h.imgThumb.setLayoutParams(lp); }
+                    if (lp.height != size) {
+                        lp.height = size;
+                        h.imgThumb.setLayoutParams(lp);
+                    }
                 }
             });
         }
@@ -94,7 +102,8 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
                         h.imgThumb.setBackgroundColor(0);
                     });
                 }
-            } catch (Exception e) { /* ignore */ }
+            } catch (Exception e) {
+                /* ignore */ }
         });
 
         // Tap to view
@@ -117,24 +126,23 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
 
     @Override public int getItemCount() { return items.size(); }
 
-    // Decode thumbnail with inSampleSize for memory efficiency.
+    // Decode thumbnail with inSampleSize, applying EXIF rotation.
     private Bitmap decodeThumb(IO1.VFile file, int maxSize) {
         try {
+            int rot = Core.exifRotation(ctx, file);
+
             BitmapFactory.Options opt = new BitmapFactory.Options();
             opt.inJustDecodeBounds = true;
-            try (InputStream is = file.OpenReader(ctx)) {
-                BitmapFactory.decodeStream(is, null, opt);
-            }
+            try (InputStream is = file.OpenReader(ctx)) { BitmapFactory.decodeStream(is, null, opt); }
 
             int sample = 1;
-            while (opt.outWidth / sample > maxSize || opt.outHeight / sample > maxSize)
-                sample *= 2;
+            while (opt.outWidth / sample > maxSize || opt.outHeight / sample > maxSize) sample *= 2;
 
             opt.inJustDecodeBounds = false;
             opt.inSampleSize = sample;
-            try (InputStream is = file.OpenReader(ctx)) {
-                return BitmapFactory.decodeStream(is, null, opt);
-            }
+            Bitmap bmp;
+            try (InputStream is = file.OpenReader(ctx)) { bmp = BitmapFactory.decodeStream(is, null, opt); }
+            return Core.applyRotation(bmp, rot);
         } catch (Exception e) {
             return null;
         }
@@ -145,6 +153,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.VH> {
     static class VH extends RecyclerView.ViewHolder {
         ImageView imgThumb;
         TextView txtName;
+
         VH(View v) {
             super(v);
             imgThumb = v.findViewById(R.id.imgThumb);

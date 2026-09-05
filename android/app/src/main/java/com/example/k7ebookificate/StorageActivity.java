@@ -276,33 +276,28 @@ public class StorageActivity extends AppCompatActivity {
         iv.setBackgroundColor(0xFF000000);
 
         try {
-            // Determine max decode size from screen
+            int rot = Core.exifRotation(this, file);
             int maxDim = Math.max(
                     getResources().getDisplayMetrics().widthPixels,
                     getResources().getDisplayMetrics().heightPixels);
 
-            // First pass: read dimensions
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inJustDecodeBounds = true;
-            try (InputStream is = file.OpenReader(this)) {
-                BitmapFactory.decodeStream(is, null, opts);
-            }
+            try (InputStream is = file.OpenReader(this)) { BitmapFactory.decodeStream(is, null, opts); }
 
-            // Calculate sample size
             int sample = 1;
-            while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim)
-                sample *= 2;
+            while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim) sample *= 2;
 
-            // Second pass: decode
             opts.inJustDecodeBounds = false;
             opts.inSampleSize = sample;
             Bitmap bmp;
-            try (InputStream is = file.OpenReader(this)) {
-                bmp = BitmapFactory.decodeStream(is, null, opts);
-            }
+            try (InputStream is = file.OpenReader(this)) { bmp = BitmapFactory.decodeStream(is, null, opts); }
+
             if (bmp != null) {
-                iv.setImageBitmap(bmp);
-                dlg.setOnDismissListener(d -> bmp.recycle());
+                bmp = Core.applyRotation(bmp, rot);
+                final Bitmap finalBmp = bmp;
+                iv.setImageBitmap(finalBmp);
+                dlg.setOnDismissListener(d -> finalBmp.recycle());
             }
         } catch (IOException e) {
             Toast.makeText(this, "ERR open image: " + e.getMessage(), Toast.LENGTH_LONG).show();
